@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { cacheWrap } from "@/lib/api-cache";
 
 const RATE_LIMIT_WINDOW = 60_000;
 const RATE_LIMIT_MAX = 10;
+const SESSION_CACHE_TTL = 60_000; // 1 min
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 
@@ -69,86 +71,84 @@ export async function POST(req: NextRequest) {
 
     console.log("[LICENSE_SESSION] Fields validated, querying Firestore");
 
-    const licSnap = await adminDb
-      .collection("licenses")
-      .where("productId", "==", productId)
-      .get();
+    const cacheKey = `session:${productId}:${universeId}:${creatorId}`;
+    const result = await cacheWrap(cacheKey, SESSION_CACHE_TTL, async () => {
+      const licSnap = await adminDb
+        .collection("licenses")
+        .where("productId", "==", productId)
+        .get();
 
-    if (licSnap.empty) {
-      console.log("[LICENSE_SESSION] No licenses found for product");
-      return success({ verified: false, licenseFound: false, reason: "NO_ACTIVE_LICENSE" });
-    }
-
-    let foundBoundUniverseId: number | null = null;
-    let foundRevoked = false;
-
-    for (const doc of licSnap.docs) {
-      const lic = doc.data();
-
-      const licUniverseId = lic.universeId != null ? Number(lic.universeId) : null;
-      const licCreatorId = lic.creatorId != null ? Number(lic.creatorId) : null;
-
-      if (licUniverseId === Number(universeId) && licCreatorId === Number(creatorId)) {
-        if (lic.status === "active") {
-          if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
-            console.log(`[LICENSE_SESSION] License ${doc.id} expired at ${lic.expiresAt}`);
-            continue;
-          }
-
-          let latestVersion = "1.0.0";
-          try {
-            const versionsSnap = await adminDb
-              .collection("products")
-              .doc(productId)
-              .collection("productVersions")
-              .orderBy("createdAt", "desc")
-              .limit(1)
-              .get();
-            if (!versionsSnap.empty) {
-              latestVersion = versionsSnap.docs[0].data().version || "1.0.0";
-            }
-          } catch (err) {
-            console.error("[LICENSE_SESSION] Failed to fetch product version:", err);
-          }
-
-          console.log(`[LICENSE_SESSION] Session restored for license ${doc.id} (${lic.key})`);
-
-          return success({
-            verified: true,
-            licenseFound: true,
-            licenseKey: lic.key,
-            productId: lic.productId,
-            productName: lic.productName || "",
-            boundUniverseId: licUniverseId,
-            creatorId: licCreatorId,
-            licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
-            expiresAt: lic.expiresAt || null,
-            latestVersion,
-          });
-        } else if (lic.status === "revoked") {
-          foundRevoked = true;
-        }
-      } else if (licUniverseId && licUniverseId !== Number(universeId)) {
-        foundBoundUniverseId = licUniverseId;
+      if (licSnap.empty) {
+        console.log("[LICENSE_SESSION] No licenses found for product");
+        return { verified: false, licenseFound: false, reason: "NO_ACTIVE_LICENSE" };
       }
-    }
 
-    if (foundBoundUniverseId !== null) {
-      console.log("[LICENSE_SESSION] License bound to other universe:", foundBoundUniverseId);
-      return success({
-        verified: false,
-        reason: "BOUND_TO_OTHER_UNIVERSE",
-        boundUniverseId: foundBoundUniverseId,
-      });
-    }
+      let foundBoundUniverseId: number | null = null;
+      let foundRevoked = false;
 
-    if (foundRevoked) {
-      console.log("[LICENSE_SESSION] License found but revoked");
-      return success({ verified: false, licenseFound: true, reason: "LICENSE_REVOKED" });
-    }
+      for (const doc of licSnap.docs) {
+        const lic = doc.data();
 
-    console.log("[LICENSE_SESSION] No matching active license found");
-    return success({ verified: false, licenseFound: false, reason: "NO_ACTIVE_LICENSE" });
+        const licUniverseId = lic.universeId != null ? Number(lic.universeId) : null;
+        const licCreatorId = lic.creatorId != null ? Number(lic.creatorId) : null;
+
+        if (licUniverseId === Number(universeId) && licCreatorId === Number(creatorId)) {
+          if (lic.status === "active") {
+            if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
+              console.log(`[LICENSE_SESSION] License ${doc.id} expired at ${lic.expiresAt}`);
+              continue;
+            }
+
+            let latestVersion = "1.0.0";
+            try {
+              const versionsSnap = await adminDb
+                .collection("products")
+                .doc(productId)
+                .collection("productVersions")
+                .orderBy("createdAt", "desc")
+                .limit(1)
+                .get();
+              if (!versionsSnap.empty) {
+                latestVersion = versionsSnap.docs[0].data().version || "1.0.0";
+              }
+            } catch (err) {
+              console.error("[LICENSE_SESSION] Failed to fetch product version:", err);
+            }
+
+            console.log(`[LICENSE_SESSION] Session restored for license ${doc.id} (${lic.key})`);
+
+            return {
+              verified: true,
+              licenseFound: true,
+              licenseKey: lic.key,
+              productId: lic.productId,
+              productName: lic.productName || "",
+              boundUniverseId: licUniverseId,
+              creatorId: licCreatorId,
+              licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
+              expiresAt: lic.expiresAt || null,
+              latestVersion,
+            };
+          } else if (lic.status === "revoked") {
+            foundRevoked = true;
+          }
+        } else if (licUniverseId && licUniverseId !== Number(universeId)) {
+          foundBoundUniverseId = licUniverseId;
+        }
+      }
+
+      if (foundBoundUniverseId !== null) {
+        return { verified: false, reason: "BOUND_TO_OTHER_UNIVERSE", boundUniverseId: foundBoundUniverseId };
+      }
+
+      if (foundRevoked) {
+        return { verified: false, licenseFound: true, reason: "LICENSE_REVOKED" };
+      }
+
+      return { verified: false, licenseFound: false, reason: "NO_ACTIVE_LICENSE" };
+    });
+
+    return success(result);
 
   } catch (err: any) {
     console.error("[LICENSE_SESSION] Error:", err);

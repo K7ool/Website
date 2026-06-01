@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { cacheWrap } from "@/lib/api-cache";
 
 const RATE_LIMIT_WINDOW = 60_000;
 const RATE_LIMIT_MAX = 50;
+const STATUS_CACHE_TTL = 60_000; // 1 min
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 
@@ -56,45 +58,50 @@ export async function POST(req: NextRequest) {
       return fail("MISSING_PRODUCT_ID", 400);
     }
 
-    let query = adminDb.collection("licenses").where("productId", "==", productId);
-    if (licenseKey && typeof licenseKey === "string") {
-      query = query.where("key", "==", licenseKey);
-    }
+    const cacheKey = `status:${productId}:${licenseKey || "none"}:${universeId || "none"}`;
+    const result = await cacheWrap(cacheKey, STATUS_CACHE_TTL, async () => {
+      let query = adminDb.collection("licenses").where("productId", "==", productId);
+      if (licenseKey && typeof licenseKey === "string") {
+        query = query.where("key", "==", licenseKey);
+      }
 
-    const licSnap = await query.limit(1).get();
+      const licSnap = await query.limit(1).get();
 
-    if (licSnap.empty) {
-      return success({ valid: false, licenseFound: false, reason: "LICENSE_NOT_FOUND" });
-    }
+      if (licSnap.empty) {
+        return { valid: false, licenseFound: false, reason: "LICENSE_NOT_FOUND" };
+      }
 
-    const lic = licSnap.docs[0].data();
+      const lic = licSnap.docs[0].data();
 
-    if (lic.status === "revoked") {
-      return success({ valid: false, revoked: true, reason: "LICENSE_REVOKED" });
-    }
+      if (lic.status === "revoked") {
+        return { valid: false, revoked: true, reason: "LICENSE_REVOKED" };
+      }
 
-    if (lic.status !== "active") {
-      return success({ valid: false, reason: `LICENSE_${lic.status?.toUpperCase() || "INACTIVE"}` });
-    }
+      if (lic.status !== "active") {
+        return { valid: false, reason: `LICENSE_${lic.status?.toUpperCase() || "INACTIVE"}` };
+      }
 
-    if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
-      await adminDb.collection("licenses").doc(licSnap.docs[0].id).update({ status: "expired" });
-      return success({ valid: false, reason: "LICENSE_EXPIRED" });
-    }
+      if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
+        await adminDb.collection("licenses").doc(licSnap.docs[0].id).update({ status: "expired" });
+        return { valid: false, reason: "LICENSE_EXPIRED" };
+      }
 
-    if (universeId && lic.universeId && Number(lic.universeId) !== Number(universeId)) {
-      return success({ valid: false, reason: "UNIVERSE_MISMATCH" });
-    }
+      if (universeId && lic.universeId && Number(lic.universeId) !== Number(universeId)) {
+        return { valid: false, reason: "UNIVERSE_MISMATCH" };
+      }
 
-    return success({
-      valid: true,
-      revoked: false,
-      licenseFound: true,
-      licenseKey: lic.key,
-      productName: lic.productName || "",
-      expiresAt: lic.expiresAt || null,
-      boundUniverseId: lic.universeId || null,
+      return {
+        valid: true,
+        revoked: false,
+        licenseFound: true,
+        licenseKey: lic.key,
+        productName: lic.productName || "",
+        expiresAt: lic.expiresAt || null,
+        boundUniverseId: lic.universeId || null,
+      };
     });
+
+    return success(result);
   } catch (err: any) {
     console.error("[LICENSE_STATUS] Error:", err);
     return NextResponse.json({ success: false, valid: false, reason: "SERVER_ERROR", error: err.message }, { status: 500 });
