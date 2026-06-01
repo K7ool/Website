@@ -36,6 +36,26 @@ yarn-error.log*
 # vercel
 .vercel
 
+# service account keys
+*firebase-adminsdk*.json
+
+# dev context / AI rules (not for deployment)
+AGENTS.md
+AI_RULES.md
+CLAUDE.md
+PROJECT_CONTEXT.md
+
+# build reports
+DEPLOYMENT_DIAGNOSTICS.md
+VERCEL_BUILD_REPORT.md
+
+# archives
+*.zip
+
+# export directory
+EXPORT/
+web/EXPORT/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
