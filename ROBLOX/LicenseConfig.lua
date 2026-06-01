@@ -15,7 +15,7 @@ Config.LICENSE_KEY = ""
 Config.PRODUCT_ID = ""
 
 -- API endpoint — POST endpoint that verifies licenses
-Config.API_URL = "https://flippstudios.com/api/license/verify"
+Config.API_URL = "https://romarketdev.netlify.app/api/license/verify"
 
 -- HTTP request timeout in seconds
 Config.TIMEOUT = 10

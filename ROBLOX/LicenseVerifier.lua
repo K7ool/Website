@@ -262,6 +262,80 @@ function LicenseVerifier:ReVerify()
 	return self:Verify(saved.licenseKey, saved.productId)
 end
 
+-- ─── Session restore via website (no license key needed) ───
+
+function LicenseVerifier:SessionRestore()
+	local sessionUrl = self.Config.API_URL:gsub("/verify$", "/session")
+	print("[LICENSE_SESSION] Attempting session restore via:", sessionUrl)
+
+	local ctx = self:_getRobloxContext()
+
+	local jsonOk, payload = pcall(function()
+		return HttpService:JSONEncode({
+			universeId = ctx.universeId,
+			creatorId = ctx.creatorId,
+			productId = self.Config.PRODUCT_ID,
+		})
+	end)
+	if not jsonOk then
+		warn("[LICENSE_SESSION] JSONEncode failed")
+		return { success = false, reason = "INTERNAL_ERROR" }
+	end
+
+	local timedOut = false
+	local coro = coroutine.running()
+	local timeoutThread = task.delay(self.Config.TIMEOUT, function()
+		timedOut = true
+		coroutine.resume(coro)
+	end)
+
+	local httpOk, httpResult = pcall(function()
+		return HttpService:PostAsync(
+			sessionUrl,
+			payload,
+			Enum.HttpContentType.ApplicationJson,
+			false,
+			nil
+		)
+	end)
+
+	task.cancel(timeoutThread)
+
+	if timedOut then
+		warn("[LICENSE_SESSION] Request timed out")
+		return { success = false, reason = "TIMEOUT" }
+	end
+
+	if not httpOk then
+		warn("[LICENSE_SESSION] HTTP error:", tostring(httpResult))
+		return { success = false, reason = "HTTP_ERROR" }
+	end
+
+	local decodeOk, decoded = pcall(function()
+		return HttpService:JSONDecode(httpResult)
+	end)
+
+	if not decodeOk then
+		warn("[LICENSE_SESSION] Invalid JSON response")
+		return { success = false, reason = "INVALID_RESPONSE" }
+	end
+
+	if decoded.verified == true then
+		print("[LICENSE_SESSION] Session restored! Product:", decoded.productName or "Unknown")
+		self.VerifiedData = decoded
+		self.LastError = nil
+		self.LastCheckTime = os.time()
+		return decoded
+	elseif decoded.reason == "LICENSE_REVOKED" then
+		warn("[LICENSE_SESSION] License REVOKED")
+		self:ClearVerification()
+		return { success = false, reason = "LICENSE_REVOKED" }
+	else
+		print("[LICENSE_SESSION] No active session found:", decoded.reason or "UNKNOWN")
+		return { success = false, reason = decoded.reason or "NO_SESSION" }
+	end
+end
+
 -- ─── Check if a re-verify is due ───
 
 function LicenseVerifier:ShouldReVerify()

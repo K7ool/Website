@@ -205,8 +205,29 @@ function LicenseController:Start(callback)
 
 		task.wait(2)
 
-		-- Try to re-verify using DataStore
-		print("[LICENSE_CONTROLLER] Attempting re-verify for", player.Name)
+		-- Step 1: Try session restore via website (no license key needed)
+		print("[LICENSE_CONTROLLER] Attempting session restore for", player.Name)
+		local sessionResult = Verifier:SessionRestore()
+
+		if sessionResult.success and sessionResult.verified then
+			print("[LICENSE_CONTROLLER] Session restored for", player.Name, "— no UI needed")
+			self:_FireUI(player, "AutoVerified", {
+				productName = sessionResult.productName,
+				latestVersion = sessionResult.latestVersion,
+			})
+			self:_CheckVersion(player, sessionResult.latestVersion)
+			self:_StartProtectedSystem(player)
+			return
+		end
+
+		if sessionResult.reason == "LICENSE_REVOKED" then
+			print("[LICENSE_CONTROLLER] License revoked for", player.Name)
+			self:_FireUI(player, "Revoked", { message = "License has been revoked." })
+			return
+		end
+
+		-- Step 2: Fall back to DataStore re-verify
+		print("[LICENSE_CONTROLLER] Session restore failed — trying DataStore re-verify for", player.Name)
 
 		local initialTimedOut = false
 		local initCoro = coroutine.running()
