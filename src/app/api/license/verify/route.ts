@@ -43,6 +43,8 @@ function fail(reason: string, status = 403) {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("[LICENSE_VERIFY] Request received");
+
     // Rate limiting
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || req.headers.get("x-real-ip")
@@ -61,6 +63,8 @@ export async function POST(req: NextRequest) {
       return fail("INVALID_REQUEST_BODY", 400);
     }
 
+    console.log("[LICENSE_VERIFY] Body:", JSON.stringify(body));
+
     const { licenseKey, productId, placeId, universeId, creatorId } = body;
 
     // Validate required fields
@@ -75,6 +79,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Look up license by key
+    console.log("[LICENSE_VERIFY] Querying database");
+
     const licSnap = await adminDb.collection("licenses")
       .where("key", "==", licenseKey.trim())
       .limit(1)
@@ -84,6 +90,8 @@ export async function POST(req: NextRequest) {
       console.warn(`[LICENSE_VERIFY] License not found: ${licenseKey}`);
       return fail("LICENSE_NOT_FOUND");
     }
+
+    console.log("[LICENSE_VERIFY] License found");
 
     const licDoc = licSnap.docs[0];
     const lic = licDoc.data();
@@ -146,6 +154,8 @@ export async function POST(req: NextRequest) {
       console.log(`[LICENSE_VERIFY] Verification recorded for license ${licId} (activation #${currentCount})`);
     }
 
+    console.log("[LICENSE_VERIFY] Querying database");
+
     // Fetch latest product version
     let latestVersion = "1.0.0";
     try {
@@ -167,6 +177,8 @@ export async function POST(req: NextRequest) {
     const refreshedSnap = await adminDb.collection("licenses").doc(licId).get();
     const refreshed = refreshedSnap.data();
 
+    console.log("[LICENSE_VERIFY] Returning SUCCESS");
+
     return success({
       valid: true,
       productName: lic.productName || "",
@@ -178,7 +190,22 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error("[LICENSE_VERIFY] Server error:", err);
-    return NextResponse.json({ success: false, valid: false, reason: "SERVER_ERROR" }, { status: 500 });
+    console.error("[LICENSE_VERIFY] ERROR", err);
+    return NextResponse.json({
+      success: false,
+      valid: false,
+      reason: "SERVER_ERROR",
+      error: err.message,
+      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+    }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return Response.json({
+    success: true,
+    route: "/api/license/verify",
+    method: "GET",
+    status: "online",
+  });
 }
