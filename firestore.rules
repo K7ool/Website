@@ -1,0 +1,200 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function hasAcceptedLegal() {
+      let profile = get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
+      let tv = profile.acceptedTermsVersion;
+      let pv = profile.acceptedPrivacyVersion;
+      let rv = profile.acceptedRefundVersion;
+      return tv != null && tv >= 1 && pv != null && pv >= 1 && rv != null && rv >= 1;
+    }
+
+    // Products — public read, admin write
+    match /products/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      // Product Versions subcollection — admin only
+      match /productVersions/{versionId} {
+        allow read: if true;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Categories — public read, admin write
+    match /categories/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Profiles — public read (client hides sensitive fields), user create/update own, admin full access
+    match /profiles/{docId} {
+      allow read: if true;
+      allow create: if isOwner(docId);
+      allow update: if isOwner(docId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Orders — user read own, admin read all
+    match /orders/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if request.auth != null && hasAcceptedLegal();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Reviews
+    match /reviews/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null && hasAcceptedLegal();
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+
+      // Comments subcollection (review replies)
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null && hasAcceptedLegal();
+        allow update: if isOwner(resource.data.userId) || isAdmin();
+        allow delete: if isOwner(resource.data.userId) || isAdmin();
+      }
+    }
+
+    // Licenses
+    match /licenses/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Tickets
+    match /tickets/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if request.auth != null && hasAcceptedLegal();
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+
+      // Messages subcollection (ticket conversation)
+      match /messages/{messageId} {
+        allow read: if isOwner(get(/databases/$(database)/documents/tickets/$(docId)).data.userId) || isAdmin();
+        allow create: if request.auth != null && hasAcceptedLegal();
+        allow update: if isAdmin();
+      }
+    }
+
+    // Notifications
+    match /notifications/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // Payment Requests
+    match /payment_requests/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if request.auth != null && hasAcceptedLegal();
+      allow update: if isAdmin();
+    }
+
+    // Invoices
+    match /invoices/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAdmin();
+    }
+
+    // Downloads
+    match /downloads/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if request.auth != null && hasAcceptedLegal();
+    }
+
+    // License Verifications
+    match /license_verifications/{docId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Page views
+    match /pageViews/{docId} {
+      allow read: if isAdmin();
+      allow create: if true;
+    }
+
+    // ─── CMS Collections ───
+
+    match /portfolio_projects/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /site_statistics/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /services/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /homepage_sections/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /testimonials/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /faqs/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /announcements/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /site_settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /legal_content/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Coupons — authenticated users can read (checkout validation), admin write
+    match /coupons/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Achievements — public read, admin write
+    match /achievements/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // User achievements — authenticated user read own or admin read all, admin write
+    match /userAchievements/{docId} {
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}
