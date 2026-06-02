@@ -57,34 +57,52 @@ export async function GET(req: NextRequest) {
     const profilesSnap = await adminDb.collection("profiles").where("discordId", "==", discordId).limit(1).get();
 
     let uid: string;
-    if (profilesSnap.empty) {
-      const userRecord = await adminAuth.createUser({
-        email: discordUser.email || `${discordId}@discord.local`,
-        displayName: discordUser.global_name || discordUser.username,
-        photoURL: discordAvatar || undefined,
-      });
-      uid = userRecord.uid;
-
-      await adminDb.collection("profiles").doc(uid).set({
-        id: uid,
-        discordId,
-        username: discordUser.username,
-        email: discordUser.email || "",
+    if (!profilesSnap.empty) {
+      uid = profilesSnap.docs[0].id;
+      await adminDb.collection("profiles").doc(uid).update({
         avatar: discordAvatar,
-        role: "customer",
         discordVerified: true,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
     } else {
-      uid = profilesSnap.docs[0].id;
-      await adminDb.collection("profiles").doc(uid).update({
-        discordId,
-        username: discordUser.username,
-        avatar: discordAvatar,
-        discordVerified: true,
-        updatedAt: new Date().toISOString(),
-      });
+      let existingUid: string | null = null;
+      if (discordUser.email) {
+        try {
+          const existingUser = await adminAuth.getUserByEmail(discordUser.email);
+          existingUid = existingUser.uid;
+        } catch {
+          // No existing user with this email
+        }
+      }
+
+      if (existingUid) {
+        uid = existingUid;
+        await adminDb.collection("profiles").doc(uid).update({
+          discordId,
+          avatar: discordAvatar,
+          discordVerified: true,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        const userRecord = await adminAuth.createUser({
+          email: discordUser.email || `${discordId}@discord.local`,
+          displayName: discordUser.global_name || discordUser.username,
+          photoURL: discordAvatar || undefined,
+        });
+        uid = userRecord.uid;
+
+        await adminDb.collection("profiles").doc(uid).set({
+          id: uid,
+          discordId,
+          username: discordUser.username,
+          email: discordUser.email || "",
+          avatar: discordAvatar,
+          role: "customer",
+          discordVerified: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
     }
 
     const customToken = await adminAuth.createCustomToken(uid);
