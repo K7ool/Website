@@ -69,6 +69,7 @@ const COLLECTIONS = {
   licenseActivity: "licenseActivity",
   licenseBlacklist: "licenseBlacklist",
   activeSessions: "activeSessions",
+  incidents: "incidents",
 } as const;
 
 function handleSnapshotError(err: any) {
@@ -1582,6 +1583,46 @@ export const homepageService = {
     } else {
       await updateDoc(cmsDoc(COLLECTIONS.homepage, snap.docs[0].id), data);
     }
+  },
+};
+
+// ─── INCIDENTS (Status Page) ───
+
+export const incidentService = {
+  async getAll(constraints: QueryConstraint[] = []) {
+    const q = query(collection(db!, COLLECTIONS.incidents), ...constraints);
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async getBySlug(slug: string) {
+    const q = query(collection(db!, COLLECTIONS.incidents), where("slug", "==", slug), limit(1));
+    const snap = await getDocs(q);
+    const items = await serializeSnapshot(snap);
+    return items[0] || null;
+  },
+  async getById(id: string) {
+    const snap = await getDoc(doc(db!, COLLECTIONS.incidents, id));
+    if (!snap.exists()) return null;
+    return serializeDoc(snap.id, snap.data());
+  },
+  async create(data: any) {
+    const ref = await addDoc(collection(db!, COLLECTIONS.incidents), {
+      ...data,
+      timeline: data.timeline || [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return ref.id;
+  },
+  async update(id: string, data: any) {
+    await updateDoc(doc(db!, COLLECTIONS.incidents, id), { ...data, updatedAt: serverTimestamp() });
+  },
+  async delete(id: string) {
+    await deleteDoc(doc(db!, COLLECTIONS.incidents, id));
+  },
+  subscribe(callback: (items: any[]) => void, constraints: QueryConstraint[] = []) {
+    const q = query(collection(db!, COLLECTIONS.incidents), ...constraints);
+    return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
   },
 };
 

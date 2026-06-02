@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import FooterWrapper from "@/components/FooterWrapper";
 import ParticleBackground from "@/components/ParticleBackground";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import StatusBanner from "@/components/status/StatusBanner";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <ParticleBackground />
           <Navbar />
+          <StatusBanner />
           <main className="flex-1 relative z-10">{children}</main>
           <FooterWrapper />
           <CookieConsentBanner />

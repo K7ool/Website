@@ -81,6 +81,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/license-activity", label: "Activity Log" },
       { href: "/admin/license-blacklist", label: "Blacklist" },
       { href: "/admin/license-servers", label: "Server Browser" },
+      { href: "/admin/incidents", label: "Incidents" },
     ],
   },
   {
