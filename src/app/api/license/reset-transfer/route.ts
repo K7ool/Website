@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
-import { getAuth } from "firebase-admin/auth";
+import { adminDb, adminAuth } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +11,7 @@ export async function POST(req: NextRequest) {
     const token = authHeader.slice(7);
     let decodedToken;
     try {
-      decodedToken = await getAuth().verifyIdToken(token);
+      decodedToken = await adminAuth.verifyIdToken(token);
     } catch {
       return NextResponse.json({ success: false, reason: "UNAUTHORIZED" }, { status: 401 });
     }
