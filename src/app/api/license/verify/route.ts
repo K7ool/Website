@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       return fail("LICENSE_EXPIRED");
     }
 
-    if (lic.productId !== productId) {
+    if (lic.productId && lic.productId !== productId) {
       console.warn(`[LICENSE_VERIFY] Product mismatch: license=${lic.productId}, request=${productId}`);
       return fail("PRODUCT_MISMATCH");
     }

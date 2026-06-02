@@ -13,7 +13,7 @@ export default function AdminLicensesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "expiring_soon" | "expired" | "revoked">("all");
   const [generating, setGenerating] = useState<any | null>(null);
-  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0 });
+  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "" });
   const [genLoading, setGenLoading] = useState(false);
   const [extending, setExtending] = useState<any | null>(null);
   const [extendMonths, setExtendMonths] = useState(6);
@@ -47,10 +47,15 @@ export default function AdminLicensesPage() {
     setGenLoading(true);
     setNewKey("");
     try {
-      const id = await licenseService.create({ ...genForm, generatedBy: "admin" });
+      const id = await licenseService.create({
+        ...genForm,
+        universeId: genForm.universeId ? parseInt(genForm.universeId) || undefined : undefined,
+        creatorId: genForm.creatorId ? parseInt(genForm.creatorId) || undefined : undefined,
+        generatedBy: "admin",
+      });
       const lic = await licenseService.getById(id);
       setNewKey(lic?.key || "");
-      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0 });
+      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "" });
     } catch (err) {
       console.error("Generate failed:", err);
     }
@@ -230,6 +235,20 @@ export default function AdminLicensesPage() {
                     <input type="text" value={genForm.productName} onChange={(e) => setGenForm({ ...genForm, productName: e.target.value })}
                       placeholder="e.g. Advanced Admin System"
                       className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">Game ID (UniverseId)</label>
+                    <input type="text" value={genForm.universeId} onChange={(e) => setGenForm({ ...genForm, universeId: e.target.value })}
+                      placeholder="Roblox universe ID (e.g. 123456789)"
+                      className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
+                    <p className="text-xs text-gray-500 mt-1">License will be pre-bound to this game ID</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">Creator ID</label>
+                    <input type="text" value={genForm.creatorId} onChange={(e) => setGenForm({ ...genForm, creatorId: e.target.value })}
+                      placeholder="Roblox creator ID (e.g. 987654321)"
+                      className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
+                    <p className="text-xs text-gray-500 mt-1">License will be pre-bound to this creator</p>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-400 mb-1.5">Duration</label>
