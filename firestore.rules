@@ -95,8 +95,9 @@ service cloud.firestore {
     // Notifications
     match /notifications/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow create: if isAdmin() || (request.auth != null && request.resource.data.userId == request.auth.uid);
       allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Payment Requests
@@ -177,6 +178,14 @@ service cloud.firestore {
     match /legal_content/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Incidents — public read (filtered by isVisible client-side), admin write
+    match /incidents/{docId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Coupons — authenticated users can read (checkout validation), admin write

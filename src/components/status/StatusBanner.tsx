@@ -12,10 +12,10 @@ const SEVERITY_ICONS: Record<string, string> = {
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
-  info: "border-blue-500/20 bg-blue-500/5 text-blue-400",
-  minor: "border-yellow-500/20 bg-yellow-500/5 text-yellow-400",
-  major: "border-orange-500/20 bg-orange-500/5 text-orange-400",
-  critical: "border-red-500/20 bg-red-500/5 text-red-400",
+  info: "border-blue-500/20 bg-blue-500/10 text-blue-400",
+  minor: "border-yellow-500/20 bg-yellow-500/10 text-yellow-400",
+  major: "border-orange-500/20 bg-orange-500/10 text-orange-400",
+  critical: "border-red-500/20 bg-red-500/10 text-red-400",
 };
 
 export default function StatusBanner() {
@@ -40,30 +40,26 @@ export default function StatusBanner() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: "auto", opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        className={`relative z-20 border-b ${colors}`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className={`sticky top-16 lg:top-20 z-40 border-b ${colors}`}
       >
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3 text-sm">
-          <span className="text-lg">{icon}</span>
-          <div className="flex-1 min-w-0">
-            <span className="font-medium">{activeIncident.title}</span>
-            {activeIncident.description && (
-              <span className="text-gray-400 ml-2 hidden sm:inline">— {activeIncident.description}</span>
-            )}
-          </div>
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-3 text-sm">
+          <span>{icon}</span>
+          <span className="font-medium truncate">{activeIncident.title}</span>
           <Link
             href={`/status/${slug}`}
-            className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-xs font-medium"
+            className="shrink-0 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 transition-all text-xs font-semibold"
           >
             View Details
           </Link>
           <button
             onClick={() => setDismissed(true)}
-            className="shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all"
+            className="shrink-0 p-1 rounded hover:bg-white/10 transition-all ml-2"
+            aria-label="Dismiss"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

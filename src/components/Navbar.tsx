@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +35,7 @@ export default function Navbar() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const router = useRouter();
   const { user, profile, isAdmin, signOut } = useAuth();
 
   useEffect(() => {
@@ -157,7 +159,7 @@ export default function Navbar() {
                             notifications.slice(0, 5).map((n: any) => (
                               <button
                                 key={n.id}
-                                onClick={() => { if (!n.read) handleMarkRead(n.id); }}
+                                onClick={() => { if (!n.read) handleMarkRead(n.id); router.push(`/dashboard/notifications/${n.id}`); setNotifOpen(false); }}
                                 className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-all hover:bg-white/5 ${
                                   !n.read ? "bg-purple-500/5 border-l-2 border-purple-500" : "border-l-2 border-transparent"
                                 }`}
