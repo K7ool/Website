@@ -1,0 +1,15 @@
+{
+  "name": "flipp-license-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for managing Flipp Studios licenses",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "node deploy-commands.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "firebase-admin": "^13.10.0",
+    "dotenv": "^16.4.7"
+  }
+}
