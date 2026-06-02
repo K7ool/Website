@@ -43,7 +43,7 @@ export default function DashboardProductsPage() {
   useEffect(() => {
     const unsubscribers: (() => void)[] = [];
     const versionMap: Record<string, any> = {};
-    const uniqueProductIds = new Set(licenses.map((l: any) => l.productId));
+    const uniqueProductIds = new Set(licenses.filter((l: any) => l.productId).map((l: any) => l.productId));
     uniqueProductIds.forEach((pid) => {
       const unsub = productVersionService.subscribe(pid, (versions) => {
         versionMap[pid] = versions[0] || null;

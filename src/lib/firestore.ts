@@ -1078,6 +1078,7 @@ export const productVersionService = {
     }
   },
   subscribe(productId: string, callback: (items: any[]) => void) {
+    if (!productId) { callback([]); return () => {}; }
     const q = query(collection(db!, COLLECTIONS.products, productId, COLLECTIONS.productVersions), orderBy("createdAt", "desc"));
     return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
   },
