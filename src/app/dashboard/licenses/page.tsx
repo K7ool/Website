@@ -20,6 +20,8 @@ export default function DashboardLicensesPage() {
   const [verifyInput, setVerifyInput] = useState("");
   const [verifyResult, setVerifyResult] = useState<{ valid: boolean; msg: string } | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [transferringId, setTransferringId] = useState<string | null>(null);
+  const [confirmTransferId, setConfirmTransferId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +77,21 @@ export default function DashboardLicensesPage() {
     setVerifiedIds((prev) => new Set(prev).add(lic.id));
     setVerifyingId(null);
   }, [verifyModal, verifyInput, user]);
+
+  const handleTransfer = async (licenseId: string) => {
+    if (!user) return;
+    setTransferringId(licenseId);
+    try {
+      const token = await user.getIdToken();
+      await fetch("/api/license/reset-transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ licenseId }),
+      });
+    } catch (e) { console.error(e); }
+    setTransferringId(null);
+    setConfirmTransferId(null);
+  };
 
   if (loading) {
     return (
@@ -161,6 +178,21 @@ export default function DashboardLicensesPage() {
                         className="px-3 py-1.5 rounded-lg bg-dark-600 text-gray-300 text-xs hover:bg-dark-500 transition-all inline-flex items-center">
                         Activity
                       </Link>
+                      {lic.universeId && lic.status === "active" && (
+                        confirmTransferId === lic.id ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleTransfer(lic.id)} disabled={transferringId === lic.id}
+                              className="px-2 py-1.5 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all disabled:opacity-50">
+                              {transferringId === lic.id ? "Transferring..." : "Confirm"}
+                            </button>
+                            <button onClick={() => setConfirmTransferId(null)}
+                              className="px-2 py-1.5 rounded bg-dark-600 text-gray-400 text-xs hover:text-white transition-all">X</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmTransferId(lic.id)}
+                            className="px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 text-xs hover:bg-orange-500/20 transition-all">Transfer</button>
+                        )
+                      )}
                       {isVerified ? (
                         <span className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium flex items-center gap-1">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
