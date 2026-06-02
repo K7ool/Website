@@ -1,12 +1,27 @@
 require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const admin = require("firebase-admin");
 
 // ─── Firebase Admin Init ───
 
-const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+let raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 if (!raw) {
-  console.error("Missing FIREBASE_SERVICE_ACCOUNT_KEY in .env");
+  const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH;
+  if (keyPath) {
+    const resolved = path.resolve(keyPath);
+    if (fs.existsSync(resolved)) {
+      raw = fs.readFileSync(resolved, "utf8");
+    } else {
+      console.error(`Service account file not found: ${resolved}`);
+      process.exit(1);
+    }
+  }
+}
+
+if (!raw) {
+  console.error("Missing FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_SERVICE_ACCOUNT_KEY_PATH in .env");
   process.exit(1);
 }
 
@@ -17,7 +32,7 @@ try {
     serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
   }
 } catch {
-  console.error("Invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON");
+  console.error("Invalid service account JSON");
   process.exit(1);
 }
 
@@ -56,12 +71,18 @@ function calcExpiry(months) {
   return d;
 }
 
+async function safeDefer(interaction) {
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply();
+  }
+}
+
 // ─── Command Handlers ───
 
 const handlers = {
   async verify(interaction) {
     const key = interaction.options.getString("key").trim().toUpperCase();
-    await interaction.deferReply();
+    await safeDefer(interaction);
 
     const snap = await db.collection("licenses")
       .where("key", "==", key)
@@ -123,7 +144,7 @@ const handlers = {
     const creatorId = interaction.options.getInteger("creator_id") || undefined;
     const duration = interaction.options.getInteger("duration") ?? 12;
 
-    await interaction.deferReply();
+    await safeDefer(interaction);
 
     const expiresAt = calcExpiry(duration);
     const key = generateKey();
@@ -174,7 +195,7 @@ const handlers = {
     }
 
     const id = interaction.options.getString("id");
-    await interaction.deferReply();
+    await safeDefer(interaction);
 
     const ref = db.collection("licenses").doc(id);
     const snap = await ref.get();
@@ -207,7 +228,7 @@ const handlers = {
 
     const id = interaction.options.getString("id");
     const extraMonths = interaction.options.getInteger("months") ?? 6;
-    await interaction.deferReply();
+    await safeDefer(interaction);
 
     const ref = db.collection("licenses").doc(id);
     const snap = await ref.get();
@@ -245,7 +266,7 @@ const handlers = {
 
   async info(interaction) {
     const key = interaction.options.getString("key").trim().toUpperCase();
-    await interaction.deferReply();
+    await safeDefer(interaction);
 
     const snap = await db.collection("licenses")
       .where("key", "==", key)
@@ -314,9 +335,9 @@ client.on("interactionCreate", async (interaction) => {
     console.error(`Error in /${interaction.commandName}:`, err);
     const msg = "An error occurred while processing the command.";
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(msg);
+      await interaction.editReply({ content: msg }).catch(() => {});
     } else {
-      await interaction.reply({ content: msg, ephemeral: true });
+      await interaction.reply({ content: msg, ephemeral: true }).catch(() => {});
     }
   }
 });
