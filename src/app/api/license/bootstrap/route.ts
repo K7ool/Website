@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
         activityUrl: `${baseUrl}/api/license/activity`,
         heartbeatUrl: `${baseUrl}/api/license/heartbeat`,
         blacklistUrl: `${baseUrl}/api/license/blacklist`,
+        resetTransferUrl: `${baseUrl}/api/license/reset-transfer`,
         productName: prod?.name || prod?.productName || "Unknown Product",
         latestVersion,
         company: "RoMarketDev",

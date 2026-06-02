@@ -13,7 +13,8 @@ export default function AdminLicensesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "expiring_soon" | "expired" | "revoked">("all");
   const [generating, setGenerating] = useState<any | null>(null);
-  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "" });
+  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", features: {} as Record<string, any> });
+  const [featuresJson, setFeaturesJson] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [extending, setExtending] = useState<any | null>(null);
   const [extendMonths, setExtendMonths] = useState(6);
@@ -47,15 +48,21 @@ export default function AdminLicensesPage() {
     setGenLoading(true);
     setNewKey("");
     try {
+      let features = genForm.features;
+      if (featuresJson.trim()) {
+        try { features = JSON.parse(featuresJson); } catch {}
+      }
       const id = await licenseService.create({
         ...genForm,
+        features: Object.keys(features).length > 0 ? features : undefined,
         universeId: genForm.universeId ? parseInt(genForm.universeId) || undefined : undefined,
         creatorId: genForm.creatorId ? parseInt(genForm.creatorId) || undefined : undefined,
         generatedBy: "admin",
       });
       const lic = await licenseService.getById(id);
       setNewKey(lic?.key || "");
-      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "" });
+      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", features: {} });
+      setFeaturesJson("");
     } catch (err) {
       console.error("Generate failed:", err);
     }
@@ -267,6 +274,35 @@ export default function AdminLicensesPage() {
                     <label className="block text-sm text-gray-400 mb-1.5">Max Downloads (0 = unlimited)</label>
                     <input type="number" min="0" value={genForm.maxDownloads} onChange={(e) => setGenForm({ ...genForm, maxDownloads: parseInt(e.target.value) || 0 })}
                       className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">License Features</label>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      {[
+                        { key: "maxPlayers", label: "Max Players", type: "number" },
+                        { key: "allowBuilding", label: "Allow Building", type: "boolean" },
+                        { key: "adminPanel", label: "Admin Panel", type: "boolean" },
+                        { key: "customScripts", label: "Custom Scripts", type: "boolean" },
+                      ].map(({ key, label, type }) => (
+                        <label key={key} className="flex items-center gap-2 p-2 rounded-lg bg-dark-700 border border-purple-500/10 cursor-pointer hover:border-purple-500/30 transition-all">
+                          <span className="text-xs text-gray-300">{label}</span>
+                          {type === "boolean" ? (
+                            <input type="checkbox" checked={genForm.features[key] === true}
+                              onChange={(e) => setGenForm({ ...genForm, features: { ...genForm.features, [key]: e.target.checked } })}
+                              className="w-3.5 h-3.5 rounded bg-dark-600 border-purple-500 text-purple-600 focus:ring-purple-500" />
+                          ) : (
+                            <input type="number" value={genForm.features[key] || ""} placeholder="0"
+                              onChange={(e) => setGenForm({ ...genForm, features: { ...genForm.features, [key]: e.target.value ? parseInt(e.target.value) : 0 } })}
+                              className="w-14 px-1.5 py-0.5 rounded bg-dark-600 border border-purple-500/20 text-xs text-white text-center focus:outline-none focus:border-purple-500" />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                    <textarea value={featuresJson} onChange={(e) => setFeaturesJson(e.target.value)}
+                      placeholder='Or type custom JSON, e.g. {"maxPlayers":20,"allowBuilding":false}'
+                      rows={2}
+                      className="w-full px-3 py-1.5 rounded-lg bg-dark-700 border border-purple-500/20 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 font-mono" />
                   </div>
                 </div>
               )}

@@ -256,6 +256,7 @@ export const licenseService = {
     robloxUserId?: number;
     creatorId?: number;
     universeId?: number;
+    features?: Record<string, any>;
   }) {
     const expiresAt = calcExpiry(data.durationMonths);
     const ref = await addDoc(collection(db!, COLLECTIONS.licenses), {
@@ -280,6 +281,7 @@ export const licenseService = {
       universeId: data.universeId || null,
       placeId: null,
       robloxUsername: null,
+      features: data.features || null,
       activationCount: 0,
       lastVerification: null,
       lastPlaceId: null,

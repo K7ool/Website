@@ -175,6 +175,7 @@ export async function POST(req: NextRequest) {
       latestVersion,
       activationCount: refreshed?.activationCount || 1,
       boundUniverseId: refreshed?.universeId || universeId,
+      features: lic.features || null,
     });
 
   } catch (err: any) {

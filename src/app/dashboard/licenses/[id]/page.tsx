@@ -13,6 +13,7 @@ const TYPE_ICONS: Record<string, string> = {
   revoke: "❌",
   heartbeat: "💓",
   blacklist_deny: "🚫",
+  transfer: "🔄",
 };
 
 export default function LicenseDetailPage() {
@@ -22,6 +23,8 @@ export default function LicenseDetailPage() {
   const [license, setLicense] = useState<any | null>(null);
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [transferring, setTransferring] = useState(false);
+  const [confirmTransfer, setConfirmTransfer] = useState(false);
 
   useEffect(() => {
     if (!user || !params.id) return;
@@ -37,6 +40,29 @@ export default function LicenseDetailPage() {
       setLoading(false);
     })();
   }, [user, params.id]);
+
+  const handleTransfer = async () => {
+    if (!user || !license) return;
+    setTransferring(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/license/reset-transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ licenseId: params.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const lic = await licenseService.getById(params.id as string);
+        if (lic) setLicense(lic);
+        const actsRes = await fetch(`/api/license/activity?licenseId=${params.id}`);
+        const actsData = await actsRes.json();
+        if (actsData.success) setActivities(actsData.entries);
+      }
+    } catch (e) { console.error(e); }
+    setTransferring(false);
+    setConfirmTransfer(false);
+  };
 
   if (loading) {
     return (
@@ -64,11 +90,46 @@ export default function LicenseDetailPage() {
               <h1 className="text-xl font-bold text-white">{license.productName || "License"}</h1>
               <code className="text-lg text-purple-400 font-mono">{license.key}</code>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              license.status === "active" ? "bg-green-500/10 text-green-400" :
-              license.status === "revoked" ? "bg-red-500/10 text-red-400" : "bg-gray-500/10 text-gray-400"
-            }`}>{license.status}</span>
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                license.status === "active" ? "bg-green-500/10 text-green-400" :
+                license.status === "revoked" ? "bg-red-500/10 text-red-400" : "bg-gray-500/10 text-gray-400"
+              }`}>{license.status}</span>
+              {license.universeId && license.status === "active" && (
+                <>
+                  {confirmTransfer ? (
+                    <div className="flex items-center gap-1">
+                      <button onClick={handleTransfer} disabled={transferring}
+                        className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all disabled:opacity-50">
+                        {transferring ? "Transferring..." : "Confirm Transfer"}
+                      </button>
+                      <button onClick={() => setConfirmTransfer(false)}
+                        className="px-2 py-1 rounded bg-dark-600 text-gray-400 text-xs hover:text-white transition-all">Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmTransfer(true)}
+                      className="px-2 py-1 rounded bg-orange-500/10 text-orange-400 text-xs hover:bg-orange-500/20 transition-all">Transfer License</button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
+          {license.features && Object.keys(license.features).length > 0 && (
+            <div className="mb-4 p-3 rounded-xl bg-purple-500/5 border border-purple-500/10">
+              <div className="text-xs text-gray-500 mb-2 font-medium">License Features</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(license.features).map(([key, val]) => (
+                  <span key={key} className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                    val === true || val === "true" ? "bg-green-500/10 text-green-400" :
+                    val === false || val === "false" || val === 0 ? "bg-gray-500/10 text-gray-500" :
+                    "bg-blue-500/10 text-blue-400"
+                  }`}>
+                    {key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())}: {String(val)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <div className="text-gray-500 text-xs">Product ID</div>
@@ -126,6 +187,7 @@ export default function LicenseDetailPage() {
                           a.type === "verify" ? "text-green-400 bg-green-500/10" :
                           a.type === "activate" ? "text-blue-400 bg-blue-500/10" :
                           a.type === "revoke" ? "text-red-400 bg-red-500/10" :
+                          a.type === "transfer" ? "text-orange-400 bg-orange-500/10" :
                           "text-gray-400 bg-gray-500/10"
                         }`}>{a.type}</span>
                         {a.details?.serverId && <span className="text-[10px] text-gray-600 font-mono">Server: {a.details.serverId?.slice(0, 16)}...</span>}
