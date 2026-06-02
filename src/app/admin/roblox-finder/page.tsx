@@ -48,7 +48,7 @@ function CopyBtn({ text, label }: { text: string | number; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(String(text));
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
     } catch {}
