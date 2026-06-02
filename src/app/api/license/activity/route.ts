@@ -4,7 +4,7 @@ import { adminDb } from "@/lib/firebase-admin";
 export async function GET(req: NextRequest) {
   try {
     const licenseId = req.nextUrl.searchParams.get("licenseId");
-    let query: FirebaseFirestore.Query = adminDb.collection("licenseActivity");
+    let query = adminDb.collection("licenseActivity");
     if (licenseId) query = query.where("licenseId", "==", licenseId);
     const snap = await query.orderBy("createdAt", "desc").limit(100).get();
     const entries = snap.docs.map((d) => {
