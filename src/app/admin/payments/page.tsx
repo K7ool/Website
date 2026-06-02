@@ -178,6 +178,12 @@ export default function AdminPaymentsPage() {
                       </button>
                     </>
                   )}
+                  <button
+                    onClick={() => { if (confirm("Delete this payment request permanently?")) paymentRequestService.delete(req.id); }}
+                    className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </GlassCard>

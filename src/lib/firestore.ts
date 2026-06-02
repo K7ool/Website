@@ -753,6 +753,9 @@ export const paymentRequestService = {
     const q = query(collection(db!, COLLECTIONS.paymentRequests), ...constraints);
     return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
   },
+  async delete(id: string) {
+    await deleteDoc(doc(db!, COLLECTIONS.paymentRequests, id));
+  },
   subscribeById(id: string, callback: (item: any) => void) {
     return onSnapshot(doc(db!, COLLECTIONS.paymentRequests, id), (snap) => {
       if (snap.exists()) callback(serializeDoc(snap.id, snap.data()));
