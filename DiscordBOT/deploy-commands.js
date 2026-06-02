@@ -12,7 +12,7 @@ const commands = [
     .setDescription("Create a new license")
     .addStringOption((o) => o.setName("user_id").setDescription("Firebase UID of the user").setRequired(true))
     .addStringOption((o) => o.setName("product_name").setDescription("Product name").setRequired(true))
-    .addStringOption((o) => o.setName("product_id").setDescription("Product ID (optional)").setRequired(false))
+    .addStringOption((o) => o.setName("product_id").setDescription("Product ID (Firestore doc ID)").setRequired(true))
     .addIntegerOption((o) => o.setName("game_id").setDescription("Roblox universe ID to bind").setRequired(false))
     .addIntegerOption((o) => o.setName("creator_id").setDescription("Roblox creator ID to bind").setRequired(false))
     .addIntegerOption((o) => o.setName("duration").setDescription("Duration in months (0 = lifetime)").setRequired(false)),

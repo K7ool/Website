@@ -159,12 +159,30 @@ const handlers = {
 
     const userId = interaction.options.getString("user_id");
     const productName = interaction.options.getString("product_name");
-    const productId = interaction.options.getString("product_id") || "";
+    const productId = interaction.options.getString("product_id");
     const universeId = interaction.options.getInteger("game_id") || undefined;
     const creatorId = interaction.options.getInteger("creator_id") || undefined;
     const duration = interaction.options.getInteger("duration") ?? 12;
 
+    if (!productId) {
+      return interaction.reply({ content: "Product ID is required. Use `/addlicense` with `product_id:` parameter.", ephemeral: true });
+    }
+
     await safeDefer(interaction);
+
+    // Look up product to get downloadFile and other defaults
+    let productDownloadFile = "";
+    let productMaxDownloads = 0;
+    try {
+      const productSnap = await db.collection("products").doc(productId).get();
+      if (productSnap.exists) {
+        const product = productSnap.data();
+        productDownloadFile = product.downloadFile || "";
+        productMaxDownloads = product.maxDownloads || 0;
+      }
+    } catch (err) {
+      console.warn("[addlicense] Could not fetch product:", err);
+    }
 
     const expiresAt = calcExpiry(duration);
     const key = generateKey();
@@ -176,7 +194,8 @@ const handlers = {
       productName,
       status: "active",
       durationMonths: duration,
-      maxDownloads: 0,
+      downloadFile: productDownloadFile || "",
+      maxDownloads: productMaxDownloads || 0,
       downloadCount: 0,
       generatedBy: "discord_bot",
       expiresAt: expiresAt ? expiresAt.toISOString() : "",
@@ -197,6 +216,7 @@ const handlers = {
       .addFields(
         { name: "Key", value: `\`${key}\`` },
         { name: "Product", value: productName, inline: true },
+        { name: "Product ID", value: productId, inline: true },
         { name: "User ID", value: userId, inline: true },
         { name: "Duration", value: duration ? `${duration} months` : "Lifetime", inline: true },
       )
@@ -206,11 +226,11 @@ const handlers = {
     if (universeId) embed.addFields({ name: "Game ID (Universe)", value: String(universeId), inline: true });
     if (creatorId) embed.addFields({ name: "Creator ID", value: String(creatorId), inline: true });
 
-    logActivity({
+    await logActivity({
       userId: interaction.user.id,
       type: "license_add",
-      description: `Added license \`${key}\` for ${productName} (user: \`${userId}\`)`,
-      metadata: { licenseKey: key, productName, targetUserId: userId, duration, universeId, source: "discord_bot" },
+      description: `Added license \`${key}\` for ${productName} (user: \`${userId}\`, product: \`${productId}\`)`,
+      metadata: { licenseKey: key, licenseId: ref.id, productName, productId, targetUserId: userId, duration, universeId, source: "discord_bot" },
     });
 
     return interaction.editReply({ embeds: [embed] });
@@ -245,7 +265,7 @@ const handlers = {
     await ref.update({ status: "revoked", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     const lic = snap.data();
 
-    logActivity({
+    await logActivity({
       userId: interaction.user.id,
       type: "license_revoke",
       description: `Revoked license \`${lic.key}\` (${lic.productName || "—"})`,
@@ -301,7 +321,7 @@ const handlers = {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    logActivity({
+    await logActivity({
       userId: interaction.user.id,
       type: "license_renew",
       description: `Extended license \`${data.key}\` by ${extraMonths} month${extraMonths > 1 ? "s" : ""}`,
@@ -511,7 +531,7 @@ const handlers = {
     const lic = snap.data();
     await ref.delete();
 
-    logActivity({
+    await logActivity({
       userId: interaction.user.id,
       type: "license_delete",
       description: `Deleted license \`${lic.key}\` (${lic.productName || "—"})`,
@@ -559,7 +579,7 @@ const handlers = {
     const old = snap.data();
     await ref.update({ userId: newUserId, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
 
-    logActivity({
+    await logActivity({
       userId: interaction.user.id,
       type: "license_reassign",
       description: `Reassigned license \`${old.key}\` from \`${old.userId || "—"}\` to \`${newUserId}\``,
@@ -592,7 +612,7 @@ const handlers = {
       return interaction.editReply({ content: `\`\`\`json\n${json}\n\`\`\`` });
     }
 
-    logActivity({
+    await logActivity({
       userId: interaction.user.id,
       type: "license_export",
       description: `Exported ${data.length} licenses as JSON`,
