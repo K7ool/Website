@@ -141,6 +141,9 @@ export const orderService = {
   async update(id: string, data: any) {
     await updateDoc(doc(db!, COLLECTIONS.orders, id), { ...data, updatedAt: serverTimestamp() });
   },
+  async delete(id: string) {
+    await deleteDoc(doc(db!, COLLECTIONS.orders, id));
+  },
   subscribe(callback: (items: any[]) => void, constraints: QueryConstraint[] = []) {
     const q = query(collection(db!, COLLECTIONS.orders), ...constraints);
     return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
@@ -391,6 +394,9 @@ export const ticketService = {
   subscribe(callback: (items: any[]) => void, constraints: QueryConstraint[] = []) {
     const q = query(collection(db!, COLLECTIONS.tickets), ...constraints);
     return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
+  },
+  async delete(id: string) {
+    await deleteDoc(doc(db!, COLLECTIONS.tickets, id));
   },
   subscribeById(id: string, callback: (item: any) => void) {
     return onSnapshot(doc(db!, COLLECTIONS.tickets, id), (snap) => {

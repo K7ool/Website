@@ -84,6 +84,7 @@ export default function AdminOrdersPage() {
                       {order.status !== "cancelled" && (
                         <button onClick={() => updateStatus(order.id, "cancelled")} className="px-2 py-1 rounded bg-gray-500/10 text-gray-400 text-xs hover:bg-gray-500/20">Cancel</button>
                       )}
+                      <button onClick={() => { if (confirm("Permanently delete this order?")) orderService.delete(order.id); }} className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20">Delete</button>
                     </div>
                   </td>
                 </tr>

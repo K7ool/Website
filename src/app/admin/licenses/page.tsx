@@ -195,6 +195,8 @@ export default function AdminLicensesPage() {
                           )}
                           <button onClick={() => handleRegenerate(lic.id)}
                             className="px-2 py-1 rounded bg-purple-500/10 text-purple-400 text-xs hover:bg-purple-500/20 transition-all">Regen</button>
+                          <button onClick={() => handleDelete(lic.id)}
+                            className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all">Delete</button>
                         </div>
                       </td>
                     </tr>
