@@ -164,7 +164,10 @@ export default function AdminLicensesPage() {
                       <td className="py-3 px-3">
                         <code className="text-purple-300 bg-dark-600 px-2 py-0.5 rounded text-xs font-mono block max-w-[120px] truncate" title={lic.key}>{lic.key}</code>
                       </td>
-                      <td className="py-3 px-3 text-gray-300 text-xs max-w-[140px] truncate" title={lic.productName}>{lic.productName || "—"}</td>
+                      <td className="py-3 px-3">
+                        <div className="text-gray-300 text-xs truncate max-w-[140px]" title={lic.productName}>{lic.productName || "—"}</div>
+                        {lic.productId && <div className="text-gray-500 text-[10px] font-mono mt-0.5 truncate max-w-[140px]" title={lic.productId}>ID: {lic.productId}</div>}
+                      </td>
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono" title={lic.userId}>{lic.userId?.slice(0, 12)}...</td>
                       <td className="py-3 px-3"><LicenseHealthBadge lic={lic} /></td>
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono">{lic.universeId || "—"}</td>

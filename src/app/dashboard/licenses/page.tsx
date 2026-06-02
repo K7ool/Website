@@ -126,6 +126,7 @@ export default function DashboardLicensesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-white font-semibold truncate">{lic.productName || "Product"}</h3>
+                        {lic.productId && <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">ID: {lic.productId}</span>}
                         <LicenseHealthBadge lic={lic} />
                       </div>
                       <code className="text-lg font-bold text-purple-400 font-mono">{lic.key}</code>
