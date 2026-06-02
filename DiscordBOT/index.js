@@ -83,12 +83,12 @@ async function safeDefer(interaction) {
 
 async function logActivity({ userId, type, description, metadata = {} }) {
   try {
-    await db.collection("activities").add({
+    await db.collection("licenseActivity").add({
+      licenseKey: metadata.licenseKey || null,
+      licenseId: metadata.licenseId || null,
       userId,
       type,
-      description,
-      metadata,
-      source: metadata.source || null,
+      details: { description, ...metadata },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   } catch (err) {
