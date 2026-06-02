@@ -88,6 +88,7 @@ export default function AdminUsersPage() {
                         {p.verified && <span className="text-xs text-green-400">✓</span>}
                       </div>
                       <p className="text-xs text-gray-500">@{p.username} · {p.role}</p>
+                      <p className="text-[10px] text-gray-600 font-mono mt-0.5">UID: {p.id}</p>
                     </div>
                   </div>
                   <button onClick={() => setSelectedUser(selectedUser?.id === p.id ? null : p)}
