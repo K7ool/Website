@@ -79,6 +79,23 @@ async function safeDefer(interaction) {
   }
 }
 
+// ─── Activity Logging ───
+
+async function logActivity({ userId, type, description, metadata = {} }) {
+  try {
+    await db.collection("activities").add({
+      userId,
+      type,
+      description,
+      metadata,
+      source: metadata.source || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error("Failed to log activity:", err);
+  }
+}
+
 // ─── Command Handlers ───
 
 const handlers = {
@@ -188,6 +205,13 @@ const handlers = {
     if (universeId) embed.addFields({ name: "Game ID (Universe)", value: String(universeId), inline: true });
     if (creatorId) embed.addFields({ name: "Creator ID", value: String(creatorId), inline: true });
 
+    logActivity({
+      userId: interaction.user.id,
+      type: "license_add",
+      description: `Added license \`${key}\` for ${productName} (user: \`${userId}\`)`,
+      metadata: { licenseKey: key, productName, targetUserId: userId, duration, universeId, source: "discord_bot" },
+    });
+
     return interaction.editReply({ embeds: [embed] });
   },
 
@@ -219,6 +243,13 @@ const handlers = {
 
     await ref.update({ status: "revoked", updatedAt: admin.firestore.FieldValue.serverTimestamp() });
     const lic = snap.data();
+
+    logActivity({
+      userId: interaction.user.id,
+      type: "license_revoke",
+      description: `Revoked license \`${lic.key}\` (${lic.productName || "—"})`,
+      metadata: { licenseKey: lic.key, productName: lic.productName, targetUserId: lic.userId, licenseId: snap.id, source: "discord_bot" },
+    });
 
     return interaction.editReply({ embeds: [
       new EmbedBuilder().setColor(0xffaa44).setTitle("License Revoked")
@@ -267,6 +298,13 @@ const handlers = {
       expiresAt: currentExpiry.toISOString(),
       durationMonths: (data.durationMonths || 0) + extraMonths,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    logActivity({
+      userId: interaction.user.id,
+      type: "license_renew",
+      description: `Extended license \`${data.key}\` by ${extraMonths} month${extraMonths > 1 ? "s" : ""}`,
+      metadata: { licenseKey: data.key, productName: data.productName, extraMonths, newExpiry: currentExpiry.toISOString(), targetUserId: data.userId, licenseId: snap.id, source: "discord_bot" },
     });
 
     return interaction.editReply({ embeds: [
@@ -472,6 +510,13 @@ const handlers = {
     const lic = snap.data();
     await ref.delete();
 
+    logActivity({
+      userId: interaction.user.id,
+      type: "license_delete",
+      description: `Deleted license \`${lic.key}\` (${lic.productName || "—"})`,
+      metadata: { licenseKey: lic.key, productName: lic.productName, targetUserId: lic.userId, source: "discord_bot" },
+    });
+
     return interaction.editReply({ embeds: [
       new EmbedBuilder().setColor(0xff4444).setTitle("License Deleted")
         .addFields(
@@ -513,6 +558,13 @@ const handlers = {
     const old = snap.data();
     await ref.update({ userId: newUserId, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
 
+    logActivity({
+      userId: interaction.user.id,
+      type: "license_reassign",
+      description: `Reassigned license \`${old.key}\` from \`${old.userId || "—"}\` to \`${newUserId}\``,
+      metadata: { licenseKey: old.key, productName: old.productName, oldUserId: old.userId, newUserId, licenseId: snap.id, source: "discord_bot" },
+    });
+
     return interaction.editReply({ embeds: [
       new EmbedBuilder().setColor(0x44aaff).setTitle("License Reassigned")
         .addFields(
@@ -538,6 +590,13 @@ const handlers = {
     if (json.length < 1900) {
       return interaction.editReply({ content: `\`\`\`json\n${json}\n\`\`\`` });
     }
+
+    logActivity({
+      userId: interaction.user.id,
+      type: "license_export",
+      description: `Exported ${data.length} licenses as JSON`,
+      metadata: { count: data.length, source: "discord_bot" },
+    });
 
     const exportPath = path.join(__dirname, "licenses-export.json");
     fs.writeFileSync(exportPath, json, "utf8");
