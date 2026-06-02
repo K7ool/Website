@@ -46,6 +46,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/testimonials", label: "Testimonials" },
       { href: "/admin/notifications", label: "Notifications" },
       { href: "/admin/roblox", label: "Roblox Verifications" },
+      { href: "/admin/roblox-finder", label: "Roblox User Finder" },
     ],
   },
   {
