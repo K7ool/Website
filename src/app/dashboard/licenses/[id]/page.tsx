@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/DashboardLayout";
 import GlassCard from "@/components/GlassCard";
-import { licenseService, licenseActivityService } from "@/lib/firestore";
+import { licenseService } from "@/lib/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 
 const TYPE_ICONS: Record<string, string> = {
@@ -29,8 +29,11 @@ export default function LicenseDetailPage() {
       const lic = await licenseService.getById(params.id as string);
       if (!lic || lic.userId !== user.uid) { router.push("/dashboard/licenses"); return; }
       setLicense(lic);
-      const acts = await licenseActivityService.getByLicense(params.id as string);
-      setActivities(acts);
+      try {
+        const res = await window.fetch(`/api/license/activity?licenseId=${params.id}`);
+        const data = await res.json();
+        if (data.success) setActivities(data.entries);
+      } catch (e) { console.error(e); }
       setLoading(false);
     })();
   }, [user, params.id]);

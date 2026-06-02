@@ -1,9 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { orderBy, where } from "firebase/firestore";
 import GlassCard from "@/components/GlassCard";
-import { licenseActivityService } from "@/lib/firestore";
 
 const TYPE_COLORS: Record<string, string> = {
   verify: "text-green-400 bg-green-500/10",
@@ -18,13 +16,16 @@ export default function AdminLicenseActivityPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const unsub = licenseActivityService.subscribeAll((items) => {
-      setActivities(items);
-      setLoading(false);
-    });
-    return unsub;
+  const fetch = useCallback(async () => {
+    try {
+      const res = await window.fetch("/api/license/activity");
+      const data = await res.json();
+      if (data.success) setActivities(data.entries);
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetch(); const id = setInterval(fetch, 10000); return () => clearInterval(id); }, [fetch]);
 
   const filtered = activities.filter((a) => {
     if (!search.trim()) return true;

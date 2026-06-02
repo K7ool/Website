@@ -1,8 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
-import { licenseBlacklistService } from "@/lib/firestore";
 
 export default function AdminLicenseBlacklistPage() {
   const [entries, setEntries] = useState<any[]>([]);
@@ -11,32 +10,48 @@ export default function AdminLicenseBlacklistPage() {
   const [form, setForm] = useState({ type: "placeId" as "placeId" | "universeId" | "userId", value: "", reason: "" });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const unsub = licenseBlacklistService.subscribe((items) => {
-      setEntries(items);
-      setLoading(false);
-    });
-    return unsub;
+  const fetch = useCallback(async () => {
+    try {
+      const res = await window.fetch("/api/license/blacklist");
+      const data = await res.json();
+      if (data.success) setEntries(data.entries);
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetch(); const id = setInterval(fetch, 10000); return () => clearInterval(id); }, [fetch]);
 
   const handleAdd = async () => {
     if (!form.value.trim()) return;
     setSaving(true);
     try {
-      await licenseBlacklistService.create(form);
+      await window.fetch("/api/license/blacklist", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
       setForm({ type: "placeId", value: "", reason: "" });
       setShowForm(false);
+      fetch();
     } catch (err) { console.error(err); }
     setSaving(false);
   };
 
   const handleToggle = async (id: string, active: boolean) => {
-    try { await licenseBlacklistService.toggle(id, !active); } catch (err) { console.error(err); }
+    try {
+      await window.fetch(`/api/license/blacklist/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !active }),
+      });
+      fetch();
+    } catch (err) { console.error(err); }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this blacklist entry?")) return;
-    try { await licenseBlacklistService.delete(id); } catch (err) { console.error(err); }
+    try {
+      await window.fetch(`/api/license/blacklist/${id}`, { method: "DELETE" });
+      fetch();
+    } catch (err) { console.error(err); }
   };
 
   if (loading) {

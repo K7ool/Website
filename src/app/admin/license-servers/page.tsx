@@ -1,29 +1,29 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
-import { activeSessionService } from "@/lib/firestore";
 
 export default function AdminLicenseServersPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsub = activeSessionService.subscribe((items) => {
-      const now = Date.now();
-      const active = items.filter((s: any) => {
-        if (!s.lastHeartbeat) return false;
-        return now - new Date(s.lastHeartbeat).getTime() < 120000;
-      });
-      setSessions(active);
-      setLoading(false);
-    });
-    return unsub;
+  const fetch = useCallback(async () => {
+    try {
+      const res = await window.fetch("/api/license/active-sessions");
+      const data = await res.json();
+      if (data.success) setSessions(data.active || []);
+    } catch (e) { console.error(e); }
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetch(); const id = setInterval(fetch, 10000); return () => clearInterval(id); }, [fetch]);
 
   const handleEndSession = async (id: string) => {
     if (!confirm("End this server session?")) return;
-    try { await activeSessionService.end(id); } catch (err) { console.error(err); }
+    try {
+      await window.fetch(`/api/license/active-sessions/${id}`, { method: "DELETE" });
+      fetch();
+    } catch (err) { console.error(err); }
   };
 
   if (loading) {

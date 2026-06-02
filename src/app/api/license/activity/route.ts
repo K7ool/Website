@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
+export async function GET(req: NextRequest) {
+  try {
+    const licenseId = req.nextUrl.searchParams.get("licenseId");
+    let query: FirebaseFirestore.Query = adminDb.collection("licenseActivity");
+    if (licenseId) query = query.where("licenseId", "==", licenseId);
+    const snap = await query.orderBy("createdAt", "desc").limit(100).get();
+    const entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return NextResponse.json({ success: true, entries });
+  } catch (err: any) {
+    console.error("[LICENSE_ACTIVITY_GET] Error:", err);
+    return NextResponse.json({ success: false, reason: "SERVER_ERROR", error: err.message }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     let body: { licenseKey?: string; licenseId?: string; userId?: string; type?: string; details?: Record<string, any> };
