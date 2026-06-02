@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   title: "Flipp Studios - Premium Roblox Scripts & Models",
   description: "High-quality Roblox systems, scripts, UI packs, and models built for developers. Building Premium Roblox Experiences.",
   keywords: "roblox scripts, roblox models, roblox ui, game development, roblox studio",
+  icons: [{ rel: "icon", url: "/favicon.png" }],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
