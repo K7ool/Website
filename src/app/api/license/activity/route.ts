@@ -4,9 +4,9 @@ import { adminDb } from "@/lib/firebase-admin";
 export async function GET(req: NextRequest) {
   try {
     const licenseId = req.nextUrl.searchParams.get("licenseId");
-    let query = adminDb.collection("licenseActivity");
-    if (licenseId) query = query.where("licenseId", "==", licenseId);
-    const snap = await query.orderBy("createdAt", "desc").limit(100).get();
+    const col = adminDb.collection("licenseActivity");
+    const q = licenseId ? col.where("licenseId", "==", licenseId) : col;
+    const snap = await q.orderBy("createdAt", "desc").limit(100).get();
     const entries = snap.docs.map((d) => {
       const data = d.data();
       return {
