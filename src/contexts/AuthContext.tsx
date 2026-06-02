@@ -127,15 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithDiscord = useCallback(async () => {
-    if (!auth) return { error: "Firebase not configured" };
-    try {
-      const { OAuthProvider } = await import("firebase/auth");
-      const provider = new OAuthProvider("discord.com");
-      await signInWithPopup(auth, provider);
-      return {};
-    } catch (e: any) {
-      return { error: e.message };
-    }
+    if (typeof window === "undefined") return { error: "Not in browser" };
+    window.location.href = "/api/auth/discord";
+    return {};
   }, []);
 
   const signInWithRoblox = useCallback(async () => {

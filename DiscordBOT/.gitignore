@@ -3,3 +3,5 @@ node_modules/
 .env.example
 env.example
 firebase-service-account.json
+*.log
+licenses-export.json
