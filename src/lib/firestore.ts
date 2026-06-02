@@ -66,6 +66,9 @@ const COLLECTIONS = {
   coupons: "coupons",
   activities: "activities",
   robloxVerifications: "robloxVerifications",
+  licenseActivity: "licenseActivity",
+  licenseBlacklist: "licenseBlacklist",
+  activeSessions: "activeSessions",
 } as const;
 
 function handleSnapshotError(err: any) {
@@ -922,6 +925,97 @@ export const productStatsService = {
       emit();
     });
     return () => { unsubReviews(); unsubOrders(); };
+  },
+};
+
+// ─── LICENSE ACTIVITY LOG ───
+
+export const licenseActivityService = {
+  async getAll(constraints: QueryConstraint[] = []) {
+    const q = query(collection(db!, COLLECTIONS.licenseActivity), ...constraints);
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async getByLicense(licenseId: string) {
+    const q = query(collection(db!, COLLECTIONS.licenseActivity), where("licenseId", "==", licenseId), orderBy("createdAt", "desc"), limit(50));
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async getByUser(userId: string) {
+    const q = query(collection(db!, COLLECTIONS.licenseActivity), where("userId", "==", userId), orderBy("createdAt", "desc"), limit(50));
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  subscribe(licenseId: string, callback: (items: any[]) => void, constraints: QueryConstraint[] = []) {
+    const q = query(collection(db!, COLLECTIONS.licenseActivity), where("licenseId", "==", licenseId), orderBy("createdAt", "desc"), limit(50), ...constraints);
+    return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
+  },
+  subscribeAll(callback: (items: any[]) => void) {
+    const q = query(collection(db!, COLLECTIONS.licenseActivity), orderBy("createdAt", "desc"), limit(100));
+    return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
+  },
+};
+
+// ─── LICENSE BLACKLIST ───
+
+export const licenseBlacklistService = {
+  async getAll(constraints: QueryConstraint[] = []) {
+    const q = query(collection(db!, COLLECTIONS.licenseBlacklist), ...constraints);
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async getByType(type: string) {
+    const q = query(collection(db!, COLLECTIONS.licenseBlacklist), where("type", "==", type), where("active", "==", true));
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async create(data: { type: "placeId" | "universeId" | "userId"; value: string; reason: string }) {
+    const ref = await addDoc(collection(db!, COLLECTIONS.licenseBlacklist), {
+      ...data, active: true, createdAt: serverTimestamp(),
+    });
+    return ref.id;
+  },
+  async toggle(id: string, active: boolean) {
+    await updateDoc(doc(db!, COLLECTIONS.licenseBlacklist, id), { active });
+  },
+  async delete(id: string) {
+    await deleteDoc(doc(db!, COLLECTIONS.licenseBlacklist, id));
+  },
+  subscribe(callback: (items: any[]) => void) {
+    return onSnapshot(collection(db!, COLLECTIONS.licenseBlacklist), async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
+  },
+};
+
+// ─── ACTIVE SESSIONS (Server Browser) ───
+
+export const activeSessionService = {
+  async getAll(constraints: QueryConstraint[] = []) {
+    const q = query(collection(db!, COLLECTIONS.activeSessions), ...constraints);
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async getByLicense(licenseId: string) {
+    const q = query(collection(db!, COLLECTIONS.activeSessions), where("licenseId", "==", licenseId));
+    const snap = await getDocs(q);
+    return serializeSnapshot(snap);
+  },
+  async create(data: any) {
+    const ref = await addDoc(collection(db!, COLLECTIONS.activeSessions), {
+      ...data, startedAt: serverTimestamp(), lastHeartbeat: serverTimestamp(),
+    });
+    return ref.id;
+  },
+  async heartbeat(sessionId: string, playerCount: number, maxPlayers: number) {
+    await updateDoc(doc(db!, COLLECTIONS.activeSessions, sessionId), {
+      playerCount, maxPlayers, lastHeartbeat: serverTimestamp(),
+    });
+  },
+  async end(sessionId: string) {
+    await deleteDoc(doc(db!, COLLECTIONS.activeSessions, sessionId));
+  },
+  subscribe(callback: (items: any[]) => void) {
+    const q = query(collection(db!, COLLECTIONS.activeSessions), orderBy("lastHeartbeat", "desc"));
+    return onSnapshot(q, async (snap) => callback(await serializeSnapshot(snap)), handleSnapshotError);
   },
 };
 

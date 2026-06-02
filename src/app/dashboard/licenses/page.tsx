@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { orderBy, where } from "firebase/firestore";
 import DashboardLayout from "@/components/DashboardLayout";
 import GlassCard from "@/components/GlassCard";
@@ -155,7 +156,11 @@ export default function DashboardLicensesPage() {
                     </div>
                     <div className="flex flex-wrap gap-2 shrink-0">
                       <button onClick={() => navigator.clipboard.writeText(lic.key)}
-                        className="px-3 py-1.5 rounded-lg bg-dark-600 text-gray-300 text-xs hover:bg-dark-500 transition-all">Copy License</button>
+                        className="px-3 py-1.5 rounded-lg bg-dark-600 text-gray-300 text-xs hover:bg-dark-500 transition-all">Copy</button>
+                      <Link href={`/dashboard/licenses/${lic.id}`}
+                        className="px-3 py-1.5 rounded-lg bg-dark-600 text-gray-300 text-xs hover:bg-dark-500 transition-all inline-flex items-center">
+                        Activity
+                      </Link>
                       {isVerified ? (
                         <span className="px-3 py-1.5 rounded-lg bg-green-500/10 text-green-400 text-xs font-medium flex items-center gap-1">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

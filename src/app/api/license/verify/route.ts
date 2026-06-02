@@ -156,6 +156,15 @@ export async function POST(req: NextRequest) {
     const refreshedSnap = await adminDb.collection("licenses").doc(licId).get();
     const refreshed = refreshedSnap.data();
 
+    await adminDb.collection("licenseActivity").add({
+      licenseKey: licenseKey.trim(),
+      licenseId: licId,
+      userId: lic.userId || null,
+      type: "verify",
+      details: { universeId, placeId, creatorId, productId },
+      createdAt: new Date().toISOString(),
+    });
+
     console.log("[LICENSE_VERIFY] Returning SUCCESS");
 
     return success({
