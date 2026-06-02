@@ -35,7 +35,6 @@ const navGroups: NavGroup[] = [
       { href: "/admin/orders", label: "Orders" },
       { href: "/admin/payments", label: "Payments" },
       { href: "/admin/licenses", label: "Licenses" },
-      { href: "/admin/license-activity", label: "License Activity" },
     ],
   },
   {

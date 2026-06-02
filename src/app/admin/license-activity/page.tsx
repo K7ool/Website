@@ -46,7 +46,7 @@ export default function AdminLicenseActivityPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-white">License Activity Log</h1>
+        <h1 className="text-2xl font-bold text-white">Activity Log</h1>
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by key or type..."
           className="w-64 px-4 py-2 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
       </div>
