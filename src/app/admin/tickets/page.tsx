@@ -54,7 +54,7 @@ export default function AdminTicketsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-4">
-                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (confirm("Delete this ticket permanently?")) ticketService.delete(ticket.id); }}
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (confirm("Delete this ticket permanently?")) fetch(`/api/tickets/${ticket.id}`, { method: "DELETE" }); }}
                       className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all">
                       Delete
                     </button>

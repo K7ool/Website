@@ -179,7 +179,7 @@ export default function AdminPaymentsPage() {
                     </>
                   )}
                   <button
-                    onClick={() => { if (confirm("Delete this payment request permanently?")) paymentRequestService.delete(req.id); }}
+                    onClick={() => { if (confirm("Delete this payment request permanently?")) fetch(`/api/payments/${req.id}`, { method: "DELETE" }); }}
                     className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all"
                   >
                     Delete
