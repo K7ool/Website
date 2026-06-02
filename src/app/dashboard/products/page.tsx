@@ -135,7 +135,8 @@ export default function DashboardProductsPage() {
         if (fresh.userId !== user.uid) { alert("License does not belong to you."); return; }
         if (fresh.status !== "active") { alert("License is not active."); return; }
         if (fresh.expiresAt && new Date(fresh.expiresAt) < new Date()) { alert("License has expired."); return; }
-        downloadUrl = fresh.downloadFile || "";
+        const licProduct = products[lic.productId];
+        downloadUrl = fresh.downloadFile || licProduct?.downloadFile || "";
         if (!downloadUrl || downloadUrl === "#") { alert("No product file uploaded by admin."); return; }
       }
       const { downloadService } = await import("@/lib/firestore");
@@ -261,7 +262,7 @@ export default function DashboardProductsPage() {
                           Verify License
                         </button>
                       )}
-                      {isVerified && (lic.downloadFile && lic.downloadFile !== "#") && (
+                      {isVerified && ((lic.downloadFile && lic.downloadFile !== "#") || (product?.downloadFile && product?.downloadFile !== "#")) && (
                         <button onClick={() => handleDownload(lic)}
                           className="px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-medium hover:from-purple-500 hover:to-blue-500 transition-all">
                           Download Product

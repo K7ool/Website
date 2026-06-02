@@ -56,7 +56,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Download limit reached" }, { status: 403 });
     }
 
-    const downloadFile = lic.downloadFile || "";
+    let downloadFile = lic.downloadFile || "";
+    if (!downloadFile || downloadFile === "#") {
+      const productSnap = await adminDb.collection("products").doc(productId).get();
+      if (productSnap.exists) {
+        downloadFile = productSnap.data()!.downloadFile || "";
+      }
+    }
     if (!downloadFile || downloadFile === "#") {
       return NextResponse.json({ error: "Download file not available" }, { status: 404 });
     }
