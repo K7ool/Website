@@ -9,6 +9,12 @@ const TYPE_COLORS: Record<string, string> = {
   revoke: "text-red-400 bg-red-500/10",
   heartbeat: "text-purple-400 bg-purple-500/10",
   blacklist_deny: "text-orange-400 bg-orange-500/10",
+  license_add: "text-green-400 bg-green-500/10",
+  license_revoke: "text-red-400 bg-red-500/10",
+  license_renew: "text-blue-400 bg-blue-500/10",
+  license_delete: "text-red-400 bg-red-500/10",
+  license_reassign: "text-yellow-400 bg-yellow-500/10",
+  license_export: "text-purple-400 bg-purple-500/10",
 };
 
 export default function AdminLicenseActivityPage() {

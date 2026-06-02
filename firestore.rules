@@ -196,5 +196,13 @@ service cloud.firestore {
       allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
       allow write: if isAdmin();
     }
+
+    // License Activity — admin only
+    match /licenseActivity/{docId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update: if false;
+      allow delete: if false;
+    }
   }
 }

@@ -7,7 +7,18 @@ export async function GET(req: NextRequest) {
     let query: FirebaseFirestore.Query = adminDb.collection("licenseActivity");
     if (licenseId) query = query.where("licenseId", "==", licenseId);
     const snap = await query.orderBy("createdAt", "desc").limit(100).get();
-    const entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const entries = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        createdAt: data.createdAt
+          ? typeof data.createdAt === "string"
+            ? data.createdAt
+            : data.createdAt.toDate?.()?.toISOString() || new Date().toISOString()
+          : null,
+      };
+    });
     return NextResponse.json({ success: true, entries });
   } catch (err: any) {
     console.error("[LICENSE_ACTIVITY_GET] Error:", err);

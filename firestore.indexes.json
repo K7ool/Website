@@ -48,5 +48,20 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
+    {
+      "collectionGroup": "licenseActivity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "licenseActivity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "licenseId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
   ]
 }
