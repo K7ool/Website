@@ -44,7 +44,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "inventory", label: "Collectibles" },
 ];
 
-function CopyBtn({ text, label }: { text: string; label?: string }) {
+function CopyBtn({ text, label }: { text: string | number; label?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = useCallback(async () => {
     try {
@@ -64,7 +64,7 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
   );
 }
 
-function Field({ label, value, copy }: { label: string; value: string | number; copy?: string }) {
+function Field({ label, value, copy }: { label: string; value: string | number; copy?: string | number }) {
   const txt = copy ?? String(value);
   return (
     <div className="flex items-center justify-between gap-2 py-2 border-b border-purple-500/5 last:border-0">
@@ -284,7 +284,7 @@ export default function RobloxFinderPage() {
                   <div key={s.label} className="text-center p-2 rounded-lg bg-dark-700/30">
                     <div className="flex items-center justify-center gap-1">
                       <p className="text-lg font-bold text-white">{s.value}</p>
-                      <CopyBtn text={s.value} />
+                      <CopyBtn text={String(s.value)} />
                     </div>
                     <p className="text-[10px] text-gray-500 uppercase tracking-wider">{s.label}</p>
                   </div>
