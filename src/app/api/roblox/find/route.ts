@@ -6,7 +6,7 @@ const ROBLOX_HEADERS = {
 };
 
 async function fetchJson(url: string, opts?: RequestInit) {
-  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers } });
+  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(5000) });
   if (!res.ok) return null;
   return res.json();
 }
@@ -39,18 +39,36 @@ export async function POST(req: NextRequest) {
 
     const { id: userId, name: username } = resolved;
 
-    const [profile, thumbHeadshot, thumbFull, games, groups, friendsCount, followersCount, followingCount, badges, collectibles] = await Promise.all([
+    const [
+      profile, thumbHeadshotSm, thumbHeadshotLg, thumbFull, thumb3d,
+      games, favGames, groups, friendsCount, followersCount, followingCount,
+      badges, collectibles, presence, currency, status,
+    ] = await Promise.all([
       fetchJson(`https://users.roblox.com/v1/users/${userId}`),
-      fetchJson(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`),
+      fetchJson(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`),
+      fetchJson(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=720x720&format=Png`),
       fetchJson(`https://thumbnails.roblox.com/v1/users/avatar?userIds=${userId}&size=420x420&format=Png`),
+      fetchJson(`https://thumbnails.roblox.com/v1/users/avatar-3d?userIds=${userId}`),
       fetchJson(`https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50`),
+      fetchJson(`https://games.roblox.com/v2/users/${userId}/favourite/games?limit=50`),
       fetchJson(`https://groups.roblox.com/v1/users/${userId}/groups/roles`),
       fetchJson(`https://friends.roblox.com/v1/users/${userId}/friends/count`),
       fetchJson(`https://friends.roblox.com/v1/users/${userId}/followers/count`),
       fetchJson(`https://friends.roblox.com/v1/users/${userId}/followings/count`),
-      fetchJson(`https://badges.roblox.com/v1/users/${userId}/badges?limit=50`),
-      fetchJson(`https://inventory.roblox.com/v1/users/${userId}/assets/collectibles?limit=50`),
+      fetchJson(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100`),
+      fetchJson(`https://inventory.roblox.com/v1/users/${userId}/assets/collectibles?limit=100`),
+      fetchJson(`https://presence.roblox.com/v1/presence/users`, {
+        method: "POST",
+        body: JSON.stringify({ userIds: [userId] }),
+      }),
+      fetchJson(`https://economy.roblox.com/v1/users/${userId}/currency`),
+      fetchJson(`https://users.roblox.com/v1/users/${userId}/status`),
     ]);
+
+    const presenceData = presence?.userPresences?.[0];
+    const accountAge = profile?.created
+      ? Math.floor((Date.now() - new Date(profile.created).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
 
     const data = {
       userId,
@@ -58,15 +76,37 @@ export async function POST(req: NextRequest) {
       displayName: profile?.displayName || username,
       description: profile?.description || "",
       created: profile?.created,
+      accountAgeDays: accountAge,
       profileUrl: `https://www.roblox.com/users/${userId}/profile`,
-      avatarHeadshot: thumbHeadshot?.data?.[0]?.imageUrl || "",
+      avatarHeadshot: thumbHeadshotSm?.data?.[0]?.imageUrl || "",
+      avatarHeadshotHd: thumbHeadshotLg?.data?.[0]?.imageUrl || "",
       avatarFull: thumbFull?.data?.[0]?.imageUrl || "",
+      avatar3d: thumb3d?.data?.[0]?.imageUrl || "",
       isBanned: profile?.isBanned || false,
       hasVerifiedBadge: profile?.hasVerifiedBadge || false,
       friendsCount: friendsCount?.count ?? 0,
       followersCount: followersCount?.count ?? 0,
       followingCount: followingCount?.count ?? 0,
-      games: (games?.data || []).slice(0, 50),
+      online: presenceData?.userPresenceType ?? 0,
+      lastOnline: presenceData?.lastOnline || "",
+      lastLocation: presenceData?.lastLocation || "",
+      robux: currency?.robux ?? 0,
+      userStatus: status?.status || "",
+      games: (games?.data || []).slice(0, 50).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        visits: g.visits,
+        playing: g.playing,
+        image: g.thumbnailUrl?.[0]?.imageUrl || "",
+        url: `https://www.roblox.com/games/${g.id || g.universeId}`,
+      })),
+      favoriteGames: (favGames?.data || []).slice(0, 50).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        visits: g.visits,
+        image: g.thumbnailUrl?.[0]?.imageUrl || "",
+        url: `https://www.roblox.com/games/${g.id || g.universeId}`,
+      })),
       groups: (groups?.data || []).map((g: any) => ({
         id: g.group?.id,
         name: g.group?.name,
@@ -74,8 +114,18 @@ export async function POST(req: NextRequest) {
         role: g.role?.name,
         rank: g.role?.rank,
       })),
-      badges: (badges?.data || []).slice(0, 50),
-      collectibles: (collectibles?.data || []).slice(0, 50),
+      badges: (badges?.data || []).slice(0, 100).map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        description: b.description,
+        imageUrl: b.iconImageUrl || "",
+      })),
+      collectibles: (collectibles?.data || []).slice(0, 100).map((c: any) => ({
+        assetId: c.assetId,
+        name: c.name,
+        thumbnailUrl: c.thumbnailUrl || "",
+        recentAveragePrice: c.recentAveragePrice,
+      })),
     };
 
     return NextResponse.json({ success: true, data });
