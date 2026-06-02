@@ -83,7 +83,7 @@ async function safeDefer(interaction) {
 
 async function logActivity({ userId, type, description, metadata = {} }) {
   try {
-    await db.collection("licenseActivity").add({
+    const ref = await db.collection("licenseActivity").add({
       licenseKey: metadata.licenseKey || null,
       licenseId: metadata.licenseId || null,
       userId,
@@ -91,8 +91,9 @@ async function logActivity({ userId, type, description, metadata = {} }) {
       details: { description, ...metadata },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    console.log(`[ACTIVITY] Logged ${type} -> ${ref.id}`);
   } catch (err) {
-    console.error("Failed to log activity:", err);
+    console.error("[ACTIVITY] Failed to log:", err);
   }
 }
 
