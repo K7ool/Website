@@ -90,7 +90,8 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-white mb-6">Dashboard Overview</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">Dashboard Overview</h1>
+        {user?.uid && <p className="text-xs text-gray-500 mb-6 font-mono">UID: {user.uid}</p>}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
