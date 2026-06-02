@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
   const clientId = process.env.DISCORD_CLIENT_ID!;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET!;
 
-  const redirectUri = `${req.nextUrl.origin}/api/auth/discord/callback`;
+  const redirectUri =
+    process.env.DISCORD_REDIRECT_URI ||
+    `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000"}/api/auth/discord/callback`;
 
   const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
     method: "POST",

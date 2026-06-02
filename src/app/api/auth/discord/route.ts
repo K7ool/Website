@@ -6,7 +6,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Discord OAuth not configured" }, { status: 500 });
   }
 
-  const redirectUri = `${req.nextUrl.origin}/api/auth/discord/callback`;
+  const redirectUri =
+    process.env.DISCORD_REDIRECT_URI ||
+    `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000"}/api/auth/discord/callback`;
 
   const url = new URL("https://discord.com/api/oauth2/authorize");
   url.searchParams.set("client_id", clientId);
