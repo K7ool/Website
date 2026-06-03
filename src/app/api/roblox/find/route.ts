@@ -11,6 +11,24 @@ async function fetchJson(url: string, opts?: RequestInit) {
   return res.json();
 }
 
+async function getUniverseInfo(placeId: number) {
+  const universeRes = await fetchJson(`https://apis.roblox.com/universes/v1/places/${placeId}/universe`);
+  const universeId = universeRes?.universeId;
+  if (!universeId) return null;
+  const gameRes = await fetchJson(`https://games.roblox.com/v1/games?universeIds=${universeId}`);
+  const game = gameRes?.data?.[0];
+  if (!game) return null;
+  const thumbRes = await fetchJson(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${universeId}&size=512x512&format=Png`);
+  return {
+    universeId,
+    name: game.name,
+    description: game.description || "",
+    thumbnail: thumbRes?.data?.[0]?.imageUrl || "",
+    placeId,
+    rootPlaceId: game.rootPlaceId || placeId,
+  };
+}
+
 async function resolveUser(query: string): Promise<{ id: number; name: string } | null> {
   if (/^\d+$/.test(query)) {
     const profile = await fetchJson(`https://users.roblox.com/v1/users/${query}`);
@@ -66,6 +84,9 @@ export async function POST(req: NextRequest) {
     ]);
 
     const presenceData = presence?.userPresences?.[0];
+    const currentGame = presenceData?.userPresenceType === 2
+      ? await getUniverseInfo(presenceData.placeId)
+      : null;
     const accountAge = profile?.created
       ? Math.floor((Date.now() - new Date(profile.created).getTime()) / (1000 * 60 * 60 * 24))
       : 0;
@@ -93,6 +114,7 @@ export async function POST(req: NextRequest) {
       placeId: presenceData?.placeId ?? null,
       rootPlaceId: presenceData?.rootPlaceId ?? null,
       gameId: presenceData?.gameId || null,
+      currentGame,
       robux: currency?.robux ?? 0,
       userStatus: status?.status || "",
       games: (games?.data || []).slice(0, 50).map((g: any) => ({
