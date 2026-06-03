@@ -13,7 +13,7 @@ export default function AdminLicensesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "expiring_soon" | "expired" | "revoked">("all");
   const [generating, setGenerating] = useState<any | null>(null);
-  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", bindingType: "any", features: {} as Record<string, any> });
+  const [genForm, setGenForm] = useState<{ userId: string; productId: string; productName: string; durationMonths: number; maxDownloads: number; universeId: string; creatorId: string; bindingType: "universe" | "creator" | "user" | "any"; features: Record<string, any> }>({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", bindingType: "any", features: {} });
   const [featuresJson, setFeaturesJson] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [extending, setExtending] = useState<any | null>(null);
@@ -275,7 +275,7 @@ export default function AdminLicensesPage() {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-400 mb-1.5">Binding Type</label>
-                    <select value={genForm.bindingType} onChange={(e) => setGenForm({ ...genForm, bindingType: e.target.value })}
+                    <select value={genForm.bindingType} onChange={(e) => setGenForm({ ...genForm, bindingType: e.target.value as "universe" | "creator" | "user" | "any" })}
                       className="w-full px-3 py-2 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-gray-300 focus:outline-none focus:border-purple-500">
                       <option value="any">Any (bind to game)</option>
                       <option value="universe">Game (universeId)</option>
