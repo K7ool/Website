@@ -13,7 +13,7 @@ export default function AdminLicensesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "expiring_soon" | "expired" | "revoked">("all");
   const [generating, setGenerating] = useState<any | null>(null);
-  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", features: {} as Record<string, any> });
+  const [genForm, setGenForm] = useState({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", bindingType: "any", features: {} as Record<string, any> });
   const [featuresJson, setFeaturesJson] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [extending, setExtending] = useState<any | null>(null);
@@ -61,7 +61,7 @@ export default function AdminLicensesPage() {
       });
       const lic = await licenseService.getById(id);
       setNewKey(lic?.key || "");
-      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", features: {} });
+      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", bindingType: "any", features: {} });
       setFeaturesJson("");
     } catch (err) {
       console.error("Generate failed:", err);
@@ -157,6 +157,7 @@ export default function AdminLicensesPage() {
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Product</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">User</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Health</th>
+                  <th className="text-left py-3 px-3 text-gray-400 font-medium">Bind</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Universe</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Creator</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Activations</th>
@@ -177,6 +178,16 @@ export default function AdminLicensesPage() {
                       </td>
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono" title={lic.userId}>{lic.userId?.slice(0, 12)}...</td>
                       <td className="py-3 px-3"><LicenseHealthBadge lic={lic} /></td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-mono ${
+                          lic.bindingType === "creator" ? "bg-blue-500/10 text-blue-400" :
+                          lic.bindingType === "user" ? "bg-green-500/10 text-green-400" :
+                          lic.bindingType === "universe" ? "bg-purple-500/10 text-purple-400" :
+                          "bg-gray-500/10 text-gray-400"
+                        }`}>
+                          {lic.bindingType || "any"}
+                        </span>
+                      </td>
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono">{lic.universeId || "—"}</td>
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono">{lic.creatorId || "—"}</td>
                       <td className="py-3 px-3 text-gray-400 text-xs">{lic.activationCount || 0}</td>
@@ -261,6 +272,17 @@ export default function AdminLicensesPage() {
                       placeholder="Roblox creator ID (e.g. 987654321)"
                       className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
                     <p className="text-xs text-gray-500 mt-1">License will be pre-bound to this creator</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">Binding Type</label>
+                    <select value={genForm.bindingType} onChange={(e) => setGenForm({ ...genForm, bindingType: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-gray-300 focus:outline-none focus:border-purple-500">
+                      <option value="any">Any (bind to game)</option>
+                      <option value="universe">Game (universeId)</option>
+                      <option value="creator">Creator (creatorId)</option>
+                      <option value="user">User (robloxUserId)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">What the license binds to on first activation</p>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-400 mb-1.5">Duration</label>

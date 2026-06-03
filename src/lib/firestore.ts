@@ -261,6 +261,7 @@ export const licenseService = {
     creatorId?: number;
     universeId?: number;
     features?: Record<string, any>;
+    bindingType?: "universe" | "creator" | "user" | "any";
   }) {
     const expiresAt = calcExpiry(data.durationMonths);
     const ref = await addDoc(collection(db!, COLLECTIONS.licenses), {
@@ -280,6 +281,7 @@ export const licenseService = {
       downloadCount: 0,
       expiresAt: expiresAt ? expiresAt.toISOString() : "",
       // Roblox fields
+      bindingType: data.bindingType || "any",
       robloxUserId: data.robloxUserId || null,
       creatorId: data.creatorId || null,
       universeId: data.universeId || null,

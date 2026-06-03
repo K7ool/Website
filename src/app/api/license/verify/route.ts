@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       return fail("RATE_LIMIT_EXCEEDED", 429);
     }
 
-    let body: { licenseKey?: string; productId?: string; placeId?: number; universeId?: number; creatorId?: number };
+    let body: { licenseKey?: string; productId?: string; placeId?: number; universeId?: number; creatorId?: number; robloxUserId?: number };
     try {
       body = await req.json();
     } catch {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     console.log("[LICENSE_VERIFY] Body:", JSON.stringify(body));
 
-    const { licenseKey, productId, placeId, universeId, creatorId } = body;
+    const { licenseKey, productId, placeId, universeId, creatorId, robloxUserId } = body;
 
     if (!licenseKey || typeof licenseKey !== "string") {
       return fail("MISSING_LICENSE_KEY", 400);
@@ -105,22 +105,35 @@ export async function POST(req: NextRequest) {
       return fail("PRODUCT_MISMATCH");
     }
 
-    if (!lic.universeId) {
-      await adminDb.collection("licenses").doc(licId).update({
-        universeId,
-        creatorId: creatorId || null,
+    const bindingType = lic.bindingType || "any";
+
+    // Determine which field to check/bind based on bindingType
+    const bindField = bindingType === "creator"
+      ? { name: "creatorId", value: creatorId, label: "creator", mismatchKey: "CREATOR_MISMATCH" }
+      : bindingType === "user"
+      ? { name: "robloxUserId", value: robloxUserId || creatorId, label: "user", mismatchKey: "USER_MISMATCH" }
+      : { name: "universeId", value: universeId, label: "universe", mismatchKey: "UNIVERSE_MISMATCH" };
+
+    if (!lic[bindField.name]) {
+      const updateData: Record<string, any> = {
+        [bindField.name]: bindField.value,
+        creatorId: creatorId || lic.creatorId || null,
+        universeId: universeId || lic.universeId || null,
         placeId: placeId || null,
+        robloxUserId: robloxUserId || lic.robloxUserId || null,
         activationCount: 1,
         lastVerification: new Date().toISOString(),
         lastPlaceId: placeId || null,
         updatedAt: new Date().toISOString(),
-      });
+      };
 
-      console.log(`[LICENSE_VERIFY] First activation — bound universe ${universeId} to license ${licId}`);
+      await adminDb.collection("licenses").doc(licId).update(updateData);
+
+      console.log(`[LICENSE_VERIFY] First activation — bound ${bindField.label} ${bindField.value} to license ${licId}`);
     } else {
-      if (Number(lic.universeId) !== Number(universeId)) {
-        console.warn(`[LICENSE_VERIFY] Universe mismatch: bound=${lic.universeId}, request=${universeId} for license ${licId}`);
-        return fail("UNIVERSE_MISMATCH");
+      if (Number(lic[bindField.name]) !== Number(bindField.value)) {
+        console.warn(`[LICENSE_VERIFY] ${bindField.label} mismatch: bound=${lic[bindField.name]}, request=${bindField.value} for license ${licId}`);
+        return fail(bindField.mismatchKey);
       }
 
       const currentCount = (lic.activationCount || 0) + 1;

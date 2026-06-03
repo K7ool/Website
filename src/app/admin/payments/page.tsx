@@ -31,9 +31,11 @@ export default function AdminPaymentsPage() {
       await orderService.updateStatus(req.orderId, "completed");
 
       let downloadFile = "";
+      let productBindingType = "any";
       if (req.productId) {
         const product = await productService.getById(req.productId);
         downloadFile = product?.downloadFile || "";
+        productBindingType = product?.bindingType || "any";
       }
 
       const invoice = await invoiceService.create({
@@ -61,6 +63,7 @@ export default function AdminPaymentsPage() {
         downloadFile,
         durationMonths,
         generatedBy: "admin",
+        bindingType: productBindingType as any,
       });
 
       const license = await licenseService.getById(licId);

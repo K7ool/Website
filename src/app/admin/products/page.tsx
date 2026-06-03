@@ -17,7 +17,7 @@ const initialForm = {
   name: "", slug: "", shortDescription: "", description: "",
   category: "", price: 0, salePrice: 0, thumbnail: "",
   gallery: [] as string[], downloadFile: "", downloadFileName: "", downloadFileSize: 0, version: "1.0.0",
-  tags: "", featured: false, status: "draft",
+  tags: "", featured: false, status: "draft", bindingType: "any",
 };
 
 export default function AdminProductsPage() {
@@ -89,6 +89,7 @@ export default function AdminProductsPage() {
       tags: product.tags || "",
       featured: product.featured || false,
       status: product.status || "draft",
+      bindingType: product.bindingType || "any",
     });
     setShowModal(true);
   };
@@ -515,6 +516,18 @@ export default function AdminProductsPage() {
                   {form.downloadFile && (
                     <p className="text-xs text-green-400 mt-1">File uploaded ✓</p>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Binding Type</label>
+                  <p className="text-[10px] text-gray-500 mb-1.5">Controls what the license binds to on first activation</p>
+                  <select value={form.bindingType} onChange={(e) => setForm({ ...form, bindingType: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-gray-300 focus:outline-none focus:border-purple-500">
+                    <option value="any">Any (bind to game)</option>
+                    <option value="universe">Game (universeId)</option>
+                    <option value="creator">Creator (creatorId)</option>
+                    <option value="user">User (robloxUserId)</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center gap-6">

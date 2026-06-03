@@ -20,6 +20,7 @@ export interface Product {
   updatedAt: string;
   featured: boolean;
   popular: boolean;
+  bindingType?: "universe" | "creator" | "user" | "any";
 }
 
 export interface Review {
