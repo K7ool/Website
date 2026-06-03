@@ -1,0 +1,1574 @@
+<?xml version="1.0"?>
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+	<External>null</External>
+	<External>nil</External>
+	<Item class="Script" referent="R000000">
+		<Properties>
+			<bool name="Disabled">false</bool>
+			<string name="Name">FlippStudios_LicenseInstaller</string>
+			<ProtectedString name="Source"><![CDATA[--[[
+  Flipp Studios License Installer — Roblox Studio Plugin
+  Installation: Drop .rbxm into Plugins folder or save .lua into
+    %USERPROFILE%\AppData\Local\Roblox\Plugins\
+  Then restart Studio or View → Toolbar → Reload Plugins.
+]]
+
+local plugin = plugin
+local PLUGIN_NAME = "Flipp Studios License Installer"
+local TOOLBAR_NAME = "Flipp Studios"
+local BUTTON_TEXT = "License"
+local BUTTON_TOOLTIP = "Install the Flipp Studios license system"
+local BUTTON_ICON = "rbxasset://textures/StudioSharedUI/statusSuccess.png"
+local DEFAULT_API = "https://robloxdevmarket.vercel.app"
+local WIDGET_TITLE = "License Manager"
+local WIDGET_ID = "FlippStudios_LicenseInstaller"
+
+-- ─── Module Sources ─────────────────────────────────────────────
+
+local function getModuleSource(name)
+	local sv = script:FindFirstChild(name)
+	if sv and sv:IsA("StringValue") and sv.Value ~= "" then
+		return sv.Value
+	end
+	return nil
+end
+
+local SOURCE_LICENSE_CONFIG = getModuleSource("LicenseConfigSrc") or [[
+local Config = {}
+Config.LICENSE_KEY = "{LICENSE_KEY}"
+Config.PRODUCT_ID = "{PRODUCT_ID}"
+Config.API_URL = "{API_URL}/api/license/verify"
+Config.TIMEOUT = 10
+Config.REVERIFY_INTERVAL = 3600
+Config.SHOW_UI_ON_START = true
+Config.DATASTORE_KEY = "FlippStudios_License"
+Config.LOCAL_VERSION = "1.0.0"
+return Config
+]]
+
+local SOURCE_LICENSE_VERIFIER = getModuleSource("LicenseVerifierSrc") or ""
+local SOURCE_LICENSE_CONTROLLER = getModuleSource("LicenseControllerSrc") or ""
+local SOURCE_LICENSE_UI = getModuleSource("LicenseUISrc") or ""
+local SOURCE_LOADER = getModuleSource("LicenseLoaderSrc") or [[
+local LicenseController = require(game:GetService("ServerScriptService"):WaitForChild("LicenseController"))
+LicenseController.Start(function() print("[Flipp Studios] License verified — system starting") end)
+]]
+local SOURCE_UI_LOADER = getModuleSource("LicenseUILoaderSrc") or [[
+local LicenseUI = require(game:GetService("ReplicatedStorage"):WaitForChild("LicenseUI"))
+LicenseUI:Init("")
+]]
+
+-- ─── Plugin Script Definitions ──────────────────────────────────
+
+local SCRIPTS = {
+	LicenseConfig = { container = "ServerScriptService", className = "ModuleScript", source = SOURCE_LICENSE_CONFIG },
+	LicenseVerifier = { container = "ServerScriptService", className = "ModuleScript", source = SOURCE_LICENSE_VERIFIER },
+	LicenseController = { container = "ServerScriptService", className = "ModuleScript", source = SOURCE_LICENSE_CONTROLLER },
+	LicenseUI = { container = "ReplicatedStorage", className = "ModuleScript", source = SOURCE_LICENSE_UI },
+	LicenseLoader = { container = "ServerScriptService", className = "Script", source = SOURCE_LOADER },
+	LicenseUILoader = { container = "StarterGui", className = "LocalScript", source = SOURCE_UI_LOADER },
+}
+
+-- ─── Plugin UI ──────────────────────────────────────────────────
+
+local function createWidgetUI()
+	local frame = Instance.new("Frame")
+	frame.Name = "MainFrame"
+	frame.Size = UDim2.fromScale(1, 1)
+	frame.BackgroundColor3 = Color3.fromRGB(22, 22, 35)
+	frame.BorderSizePixel = 0
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 8); c.Parent = frame
+
+	local inputs = {}
+	local statusLabel
+
+	local title = Instance.new("TextLabel")
+	title.Parent = frame
+	title.Size = UDim2.fromScale(1, 0.07)
+	title.BackgroundColor3 = Color3.fromRGB(30, 30, 48)
+	title.BorderSizePixel = 0
+	title.Text = "License Manager"
+	title.TextColor3 = Color3.fromRGB(220, 220, 240)
+	title.TextSize = 14
+	title.Font = Enum.Font.GothamBold
+	local tc = Instance.new("UICorner"); tc.CornerRadius = UDim.new(0, 8); tc.Parent = title
+
+	local logo = Instance.new("Frame")
+	logo.Parent = title; logo.Size = UDim2.fromOffset(24, 24)
+	logo.Position = UDim2.fromOffset(8, 0); logo.AnchorPoint = Vector2.new(0, 0.5)
+	logo.BackgroundColor3 = Color3.fromRGB(120, 80, 255); logo.BorderSizePixel = 0
+	local lc = Instance.new("UICorner"); lc.CornerRadius = UDim.new(0, 6); lc.Parent = logo
+	local lt = Instance.new("TextLabel")
+	lt.Parent = logo; lt.Size = UDim2.fromScale(1, 1); lt.BackgroundTransparency = 1
+	lt.Text = "FS"; lt.TextColor3 = Color3.fromRGB(255, 255, 255)
+	lt.TextSize = 10; lt.Font = Enum.Font.GothamBold
+	lt.TextXAlignment = Enum.TextXAlignment.Center; lt.TextYAlignment = Enum.TextYAlignment.Center
+
+	local yPos = 50
+	local fields = {
+		{ label = "LICENSE KEY", hint = "FLIPP-XXXX-XXXX-XXXX", key = "licenseKey" },
+		{ label = "PRODUCT ID", hint = "Product ID", key = "productId" },
+		{ label = "API URL", hint = "https://robloxdevmarket.vercel.app", key = "apiUrl", default = DEFAULT_API },
+	}
+
+	for _, f in ipairs(fields) do
+		local lbl = Instance.new("TextLabel")
+		lbl.Parent = frame; lbl.Size = UDim2.fromScale(0.9, 0.035)
+		lbl.Position = UDim2.new(0.5, 0, 0, yPos); lbl.AnchorPoint = Vector2.new(0.5, 0)
+		lbl.BackgroundTransparency = 1; lbl.Text = f.label
+		lbl.TextColor3 = Color3.fromRGB(140, 140, 160); lbl.TextSize = 10
+		lbl.Font = Enum.Font.GothamBold; lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+		local inp = Instance.new("TextBox")
+		inp.Parent = frame; inp.Name = "Input_" .. f.key
+		inp.Size = UDim2.fromScale(0.9, 0.065); inp.Position = UDim2.new(0.5, 0, 0, yPos + 20)
+		inp.AnchorPoint = Vector2.new(0.5, 0)
+		inp.BackgroundColor3 = Color3.fromRGB(32, 32, 48); inp.BorderSizePixel = 0
+		inp.TextColor3 = Color3.fromRGB(220, 220, 240); inp.TextSize = 13; inp.Font = Enum.Font.Gotham
+		inp.PlaceholderText = f.hint; inp.PlaceholderColor3 = Color3.fromRGB(60, 60, 80)
+		inp.ClearTextOnFocus = false; inp.Text = f.default or ""
+		local ic = Instance.new("UICorner"); ic.CornerRadius = UDim.new(0, 8); ic.Parent = inp
+		local is = Instance.new("UIStroke"); is.Color = Color3.fromRGB(45, 45, 65); is.Parent = inp
+		inputs[f.key] = inp
+		yPos = yPos + 62
+	end
+
+	statusLabel = Instance.new("TextLabel")
+	statusLabel.Parent = frame; statusLabel.Size = UDim2.fromScale(0.9, 0.04)
+	statusLabel.Position = UDim2.new(0.5, 0, 0, yPos + 2); statusLabel.AnchorPoint = Vector2.new(0.5, 0)
+	statusLabel.BackgroundTransparency = 1; statusLabel.Text = ""
+	statusLabel.TextColor3 = Color3.fromRGB(140, 140, 160); statusLabel.TextSize = 11
+	statusLabel.Font = Enum.Font.Gotham; statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	yPos = yPos + 40
+
+	local installBtn = Instance.new("TextButton")
+	installBtn.Parent = frame; installBtn.Size = UDim2.fromScale(0.9, 0.085)
+	installBtn.Position = UDim2.new(0.5, 0, 0, yPos); installBtn.AnchorPoint = Vector2.new(0.5, 0)
+	installBtn.BackgroundColor3 = Color3.fromRGB(100, 70, 200); installBtn.BorderSizePixel = 0
+	installBtn.AutoButtonColor = false; installBtn.Text = "INSTALL LICENSE SYSTEM"
+	installBtn.TextColor3 = Color3.fromRGB(255, 255, 255); installBtn.TextSize = 14; installBtn.Font = Enum.Font.GothamBold
+	local ic = Instance.new("UICorner"); ic.CornerRadius = UDim.new(0, 8); ic.Parent = installBtn
+
+	yPos = yPos + 60
+
+	local footer = Instance.new("TextLabel")
+	footer.Parent = frame; footer.Size = UDim2.fromScale(0.9, 0.035)
+	footer.Position = UDim2.new(0.5, 0, 0, yPos); footer.AnchorPoint = Vector2.new(0.5, 0)
+	footer.BackgroundTransparency = 1; footer.Text = "robloxdevmarket.vercel.app"
+	footer.TextColor3 = Color3.fromRGB(60, 60, 80); footer.TextSize = 10; footer.Font = Enum.Font.Gotham
+
+	return frame, inputs, statusLabel, installBtn
+end
+
+-- ─── Helpers ────────────────────────────────────────────────────
+
+local function setStatus(label, text, color)
+	if label then label.Text = text or ""; label.TextColor3 = color or Color3.fromRGB(140, 140, 160) end
+end
+
+local function getService(name)
+	local svc = game:FindService(name)
+	if not svc then svc = Instance.new("Folder"); svc.Name = name; svc.Parent = game end
+	return svc
+end
+
+local function installScript(name, def, config)
+	local container = getService(def.container)
+	local existing = container:FindFirstChild(name)
+	if existing then existing:Destroy() end
+	local source = def.source
+	if name == "LicenseConfig" then
+		source = source:gsub("{LICENSE_KEY}", config.licenseKey)
+		source = source:gsub("{PRODUCT_ID}", config.productId)
+		source = source:gsub("{API_URL}", config.apiUrl:gsub("/+$", ""))
+	end
+	local inst = Instance.new(def.className)
+	inst.Name = name; inst.Source = source; inst.Parent = container
+	return inst
+end
+
+local function ensureRemoteEvent()
+	local rs = getService("ReplicatedStorage")
+	if rs:FindFirstChild("FlippStudios_LicenseEvent") then return end
+	local re = Instance.new("RemoteEvent"); re.Name = "FlippStudios_LicenseEvent"; re.Parent = rs
+end
+
+local function installSystem(config, sl)
+	setStatus(sl, "Installing...", Color3.fromRGB(180, 180, 200))
+	pcall(function() game:GetService("HttpService").HttpEnabled = true end)
+	ensureRemoteEvent()
+	local installed = {}
+	for name, def in pairs(SCRIPTS) do
+		local ok, inst = pcall(installScript, name, def, config)
+		if ok then table.insert(installed, def.container .. "." .. name)
+		else warn("[" .. PLUGIN_NAME .. "] Install error on " .. name .. ":", inst); setStatus(sl, "Failed: " .. name, Color3.fromRGB(220, 80, 80)); return false end
+	end
+	setStatus(sl, "Installed " .. #installed .. " scripts!", Color3.fromRGB(60, 200, 120))
+	return true
+end
+
+-- ─── Plugin Entry ───────────────────────────────────────────────
+
+local ok, err = pcall(function()
+	local toolbar = plugin:CreateToolbar(TOOLBAR_NAME)
+	local button = toolbar:CreateButton(BUTTON_TEXT, BUTTON_TOOLTIP, BUTTON_ICON)
+	local dockInfo = DockWidgetPluginGuiInfo.new(
+		Enum.InitialDockState.Float, false, false, 420, 380, 350, 350
+	)
+	local dockWidget = plugin:CreateDockWidgetPluginGuiAsync(WIDGET_ID, dockInfo)
+	dockWidget.Title = WIDGET_TITLE
+	local wf, inputs, sl, installBtn = createWidgetUI()
+	wf.Parent = dockWidget
+
+	installBtn.MouseButton1Click:Connect(function()
+		local cfg = {
+			licenseKey = (inputs.licenseKey and inputs.licenseKey.Text):match("^%s*(.-)%s*$") or "",
+			productId = (inputs.productId and inputs.productId.Text):match("^%s*(.-)%s*$") or "",
+			apiUrl = (inputs.apiUrl and inputs.apiUrl.Text):match("^%s*(.-)%s*$") or DEFAULT_API,
+		}
+		if cfg.licenseKey == "" or cfg.productId == "" then
+			setStatus(sl, "Enter license key and product ID", Color3.fromRGB(220, 80, 80))
+			return
+		end
+		installSystem(cfg, sl)
+	end)
+
+	button.Click:Connect(function()
+		dockWidget.Enabled = not dockWidget.Enabled
+	end)
+
+	dockWidget.Enabled = true
+	print("[" .. PLUGIN_NAME .. "] Loaded successfully")
+end)
+
+if not ok then
+	warn("[" .. PLUGIN_NAME .. "] Failed to load:", err)
+end
+]]></ProtectedString>
+		</Properties>
+		<Item class="StringValue" referent="R000001">
+			<Properties>
+				<string name="Name">LicenseConfigSrc</string>
+				<string name="Value"><![CDATA[--[[
+  LicenseConfig.lua
+  ──────────────────────────────────────────────
+  Auto-detected from Flipp Studios marketplace.
+  Edit LICENSE_KEY and PRODUCT_ID for your purchase.
+  All other values are pre-configured.
+]]
+
+local Config = {}
+
+-- Your license key (purchased from https://robloxdevmarket.vercel.app)
+Config.LICENSE_KEY = "{LICENSE_KEY}"
+
+-- Product ID matching the product on robloxdevmarket.vercel.app
+Config.PRODUCT_ID = "{PRODUCT_ID}"
+
+-- API endpoint — POST endpoint that verifies licenses
+Config.API_URL = "{API_URL}/api/license/verify"
+
+-- HTTP request timeout in seconds
+Config.TIMEOUT = 10
+
+-- How often to re-verify (in seconds) — 3600 = 1 hour
+Config.REVERIFY_INTERVAL = 3600
+
+-- Auto-displayed if license is missing
+Config.SHOW_UI_ON_START = true
+
+-- DataStore key prefix (change only if conflicting with another system)
+Config.DATASTORE_KEY = "FlippStudios_License"
+
+return Config
+]]></string>
+			</Properties>
+		</Item>
+		<Item class="StringValue" referent="R000002">
+			<Properties>
+				<string name="Name">LicenseVerifierSrc</string>
+				<string name="Value"><![CDATA[--[[
+  LicenseVerifier.lua
+  ──────────────────────────────────────────────
+  Server-side license verification module.
+  Sends POST request to the marketplace API.
+  Uses DataStore to remember verified licenses.
+  Must run on the Server (Script, not LocalScript).
+]]
+
+local HttpService = game:GetService("HttpService")
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+
+local LicenseVerifier = {}
+LicenseVerifier.__index = LicenseVerifier
+
+-- ─── Constructor ───
+
+function LicenseVerifier.new(config)
+	local self = setmetatable({}, LicenseVerifier)
+	self.Config = config
+	self.VerifiedData = nil
+	self.LastError = nil
+	self.LastCheckTime = 0
+	self.Store = DataStoreService:GetDataStore(config.DATASTORE_KEY .. "_v2")
+	return self
+end
+
+-- ─── Get Roblox environment data ───
+
+function LicenseVerifier:_getRobloxContext()
+	return {
+		placeId = game.PlaceId,
+		universeId = game.GameId,
+		creatorId = game.CreatorId,
+	}
+end
+
+-- ─── Ping server connectivity check ───
+
+function LicenseVerifier:PingServer()
+	local pingUrl = self.Config.API_URL:gsub("/api/license/verify$", "/api/license/ping")
+	print("[LICENSE_PING] Pinging:", pingUrl)
+
+	local startTime = tick()
+
+	local timedOut = false
+	local coro = coroutine.running()
+	local timeoutThread = task.delay(self.Config.TIMEOUT, function()
+		timedOut = true
+		coroutine.resume(coro)
+	end)
+
+	local httpSuccess, response = pcall(function()
+		return HttpService:GetAsync(pingUrl)
+	end)
+
+	task.cancel(timeoutThread)
+	local duration = math.floor((tick() - startTime) * 1000)
+
+	print("[LICENSE_PING] Duration:", duration, "ms")
+	print("[LICENSE_PING] Timed out:", timedOut)
+	print("[LICENSE_PING] HTTP success:", httpSuccess)
+
+	if timedOut then
+		warn("[LICENSE_PING] Request timed out after " .. self.Config.TIMEOUT .. " seconds")
+		print("[LICENSE_PING] URL:", pingUrl)
+		return false, "TIMEOUT"
+	end
+
+	if not httpSuccess then
+		local errorMsg = tostring(response)
+		warn("[LICENSE_PING] HTTP error:", errorMsg)
+		print("[LICENSE_PING] URL:", pingUrl)
+		return false, "NETWORK_ERROR"
+	end
+
+	print("[LICENSE_PING] Response:", response)
+
+	local ok, decoded = pcall(function()
+		return HttpService:JSONDecode(response)
+	end)
+
+	if not ok then
+		warn("[LICENSE_PING] Invalid JSON:", tostring(response))
+		return false, "INVALID_RESPONSE"
+	end
+
+	if decoded.server ~= "online" then
+		warn("[LICENSE_PING] Server not online:", decoded.server)
+		return false, "SERVER_OFFLINE"
+	end
+
+	local serverTime = decoded.timestamp or 0
+	local timeDiffMs = (os.clock() * 1000) - serverTime
+	print("[LICENSE_PING] Server online! Clock diff ms:", timeDiffMs)
+	print("[LICENSE_PING] Status: 200 OK")
+	return true, decoded
+end
+
+-- ─── Verify license via API ───
+
+function LicenseVerifier:Verify(licenseKey, productId)
+	local key = licenseKey or self.Config.LICENSE_KEY
+	local pid = productId or self.Config.PRODUCT_ID
+
+	print("[LICENSE] Starting verification...")
+	print("[LICENSE] Key:", key and #key .. " chars" or "NONE")
+	print("[LICENSE] Product:", pid)
+	print("[LICENSE] API:", self.Config.API_URL)
+	print("[LICENSE] Timeout:", self.Config.TIMEOUT, "seconds")
+
+	if not key or key == "" then
+		warn("[LICENSE] MISSING_LICENSE_KEY")
+		self.LastError = "MISSING_LICENSE_KEY"
+		return { success = false, reason = "MISSING_LICENSE_KEY" }
+	end
+
+	if not pid or pid == "" then
+		warn("[LICENSE] MISSING_PRODUCT_ID")
+		self.LastError = "MISSING_PRODUCT_ID"
+		return { success = false, reason = "MISSING_PRODUCT_ID" }
+	end
+
+	-- Step 1: Ping the server first
+	local pingOk, pingResult = self:PingServer()
+	if not pingOk then
+		local pingReason = tostring(pingResult)
+		warn("[LICENSE] Ping failed:", pingReason)
+		print("[LICENSE] Cannot reach licensing server at:", self.Config.API_URL)
+		self.LastError = "CANNOT_REACH_SERVER"
+		return { success = false, reason = "CANNOT_REACH_SERVER", message = "Cannot reach licensing server at " .. self.Config.API_URL }
+	end
+	print("[LICENSE] Ping OK — server is reachable, proceeding with verification")
+
+	-- Check HttpService is enabled
+	local hsOk, hsErr = pcall(function()
+		return HttpService.HttpEnabled
+	end)
+	if hsOk and not hsErr then
+		warn("[LICENSE] HttpService.HttpEnabled is false — requests will fail")
+		print("[LICENSE] Enable HTTP Requests in Game Settings > Security")
+		return { success = false, reason = "HTTP_DISABLED" }
+	end
+
+	local ctx = self:_getRobloxContext()
+	print("[LICENSE] Context: placeId=" .. ctx.placeId .. " universeId=" .. ctx.universeId .. " creatorId=" .. ctx.creatorId)
+
+	local jsonOk, payload = pcall(function()
+		return HttpService:JSONEncode({
+			licenseKey = key,
+			productId = pid,
+			placeId = ctx.placeId,
+			universeId = ctx.universeId,
+			creatorId = ctx.creatorId,
+		})
+	end)
+	if not jsonOk then
+		warn("[LICENSE] JSONEncode failed:", tostring(payload))
+		self.LastError = "INTERNAL_ERROR"
+		return { success = false, reason = "INTERNAL_ERROR", message = "Failed to encode request" }
+	end
+
+	print("[LICENSE] Sending HTTP request")
+	print("[LICENSE] Payload:", payload)
+
+	-- Manual timeout using task.delay
+	local timedOut = false
+	local resultData = nil
+	local coro = coroutine.running()
+
+	local timeoutThread = task.delay(self.Config.TIMEOUT, function()
+		timedOut = true
+		coroutine.resume(coro)
+	end)
+
+	local httpOk, httpResult = pcall(function()
+		local response = HttpService:PostAsync(
+			self.Config.API_URL,
+			payload,
+			Enum.HttpContentType.ApplicationJson,
+			false,
+			nil
+		)
+		return response
+	end)
+
+	task.cancel(timeoutThread)
+
+	if timedOut then
+		warn("[LICENSE] Request timed out after " .. self.Config.TIMEOUT .. " seconds")
+		print("[LICENSE] The API endpoint may be unreachable or not responding")
+		self.LastError = "TIMEOUT"
+		return { success = false, reason = "TIMEOUT", message = "Verification timed out" }
+	end
+
+	if not httpOk then
+		local errorMsg = tostring(httpResult)
+		warn("[LICENSE] HTTP error:", errorMsg)
+		print("[LICENSE] Request URL:", self.Config.API_URL)
+		print("[LICENSE] Status: Error")
+		self.LastError = "HTTP_ERROR"
+		return { success = false, reason = "HTTP_ERROR", message = errorMsg }
+	end
+
+	print("[LICENSE] Status: 200 OK")
+	print("[LICENSE] Response body:", httpResult)
+	print("[LICENSE] Request URL:", self.Config.API_URL)
+	print("[LICENSE] Payload sent:", payload)
+
+	local decodeOk, decoded = pcall(function()
+		return HttpService:JSONDecode(httpResult)
+	end)
+
+	if not decodeOk then
+		warn("[LICENSE] JSON decode failed:", tostring(httpResult))
+		self.LastError = "INVALID_RESPONSE"
+		return { success = false, reason = "INVALID_RESPONSE", message = "Invalid API Response" }
+	end
+
+	print("[LICENSE] Decoded response:", HttpService:JSONEncode(decoded))
+
+	if not decoded.success then
+		local reason = decoded.reason or "UNKNOWN"
+		warn("[LICENSE] API returned failure:", reason)
+		self.LastError = reason
+		return decoded
+	end
+
+	if decoded.valid ~= true then
+		warn("[LICENSE] API returned valid=false without success=false")
+		self.LastError = "INVALID_RESPONSE"
+		return { success = false, reason = "INVALID_RESPONSE", message = "Invalid API Response" }
+	end
+
+	print("[LICENSE] Verification successful!")
+	print("[LICENSE] Product:", decoded.productName or "Unknown")
+	print("[LICENSE] Type:", decoded.licenseType or "lifetime")
+
+	-- Store verification data
+	self.VerifiedData = decoded
+	self.LastError = nil
+	self.LastCheckTime = os.time()
+
+	-- Persist to DataStore
+	self:_SaveToDataStore({
+		licenseKey = key,
+		productId = pid,
+		verifiedAt = DateTime.now():ToIsoDate(),
+	})
+
+	return decoded
+end
+
+-- ─── Re-verify using DataStore ───
+
+function LicenseVerifier:ReVerify()
+	local saved = self:_LoadFromDataStore()
+	if not saved then
+		return { success = false, reason = "NO_SAVED_LICENSE" }
+	end
+	return self:Verify(saved.licenseKey, saved.productId)
+end
+
+-- ─── Session restore via website (no license key needed) ───
+
+function LicenseVerifier:SessionRestore()
+	local sessionUrl = self.Config.API_URL:gsub("/verify$", "/session")
+	print("[LICENSE_SESSION] Attempting session restore via:", sessionUrl)
+
+	local ctx = self:_getRobloxContext()
+
+	local jsonOk, payload = pcall(function()
+		return HttpService:JSONEncode({
+			universeId = ctx.universeId,
+			creatorId = ctx.creatorId,
+			productId = self.Config.PRODUCT_ID,
+		})
+	end)
+	if not jsonOk then
+		warn("[LICENSE_SESSION] JSONEncode failed")
+		return { success = false, reason = "INTERNAL_ERROR" }
+	end
+
+	local timedOut = false
+	local coro = coroutine.running()
+	local timeoutThread = task.delay(self.Config.TIMEOUT, function()
+		timedOut = true
+		coroutine.resume(coro)
+	end)
+
+	local httpOk, httpResult = pcall(function()
+		return HttpService:PostAsync(
+			sessionUrl,
+			payload,
+			Enum.HttpContentType.ApplicationJson,
+			false,
+			nil
+		)
+	end)
+
+	task.cancel(timeoutThread)
+
+	if timedOut then
+		warn("[LICENSE_SESSION] Request timed out")
+		return { success = false, reason = "TIMEOUT" }
+	end
+
+	if not httpOk then
+		warn("[LICENSE_SESSION] HTTP error:", tostring(httpResult))
+		return { success = false, reason = "HTTP_ERROR" }
+	end
+
+	local decodeOk, decoded = pcall(function()
+		return HttpService:JSONDecode(httpResult)
+	end)
+
+	if not decodeOk then
+		warn("[LICENSE_SESSION] Invalid JSON response")
+		return { success = false, reason = "INVALID_RESPONSE" }
+	end
+
+	if decoded.verified == true then
+		print("[LICENSE_SESSION] Session restored! Product:", decoded.productName or "Unknown")
+		self.VerifiedData = decoded
+		self.LastError = nil
+		self.LastCheckTime = os.time()
+		return decoded
+	elseif decoded.reason == "LICENSE_REVOKED" then
+		warn("[LICENSE_SESSION] License REVOKED")
+		self:ClearVerification()
+		return { success = false, reason = "LICENSE_REVOKED" }
+	else
+		print("[LICENSE_SESSION] No active session found:", decoded.reason or "UNKNOWN")
+		return { success = false, reason = decoded.reason or "NO_SESSION" }
+	end
+end
+
+-- ─── Check if a re-verify is due ───
+
+function LicenseVerifier:ShouldReVerify()
+	local saved = self:_LoadFromDataStore()
+	if not saved then return true end
+	if not saved.verifiedAt then return true end
+	local elapsed = os.time() - saved.verifiedAt
+	return elapsed >= self.Config.REVERIFY_INTERVAL
+end
+
+-- ─── DataStore persistence ───
+
+function LicenseVerifier:_SaveToDataStore(data)
+	local success, err = pcall(function()
+		self.Store:SetAsync("license_data", data)
+	end)
+	if not success then
+		warn("[FlippStudios] DataStore save failed:", err)
+	end
+end
+
+function LicenseVerifier:_LoadFromDataStore()
+	local success, data = pcall(function()
+		return self.Store:GetAsync("license_data")
+	end)
+	if success and data then
+		return data
+	end
+	return nil
+end
+
+-- ─── Status queries ───
+
+function LicenseVerifier:IsVerified()
+	return self.VerifiedData ~= nil and self.VerifiedData.valid == true
+end
+
+function LicenseVerifier:GetProductName()
+	if self.VerifiedData then
+		return self.VerifiedData.productName or "Unknown Product"
+	end
+	return "Unknown Product"
+end
+
+function LicenseVerifier:GetLicenseType()
+	if self.VerifiedData then
+		return self.VerifiedData.licenseType or "lifetime"
+	end
+	return "unknown"
+end
+
+function LicenseVerifier:GetExpiresAt()
+	if self.VerifiedData then
+		return self.VerifiedData.expiresAt
+	end
+	return nil
+end
+
+function LicenseVerifier:GetLatestVersion()
+	if self.VerifiedData then
+		return self.VerifiedData.latestVersion or "1.0.0"
+	end
+	return "1.0.0"
+end
+
+function LicenseVerifier:GetLastError()
+	return self.LastError
+end
+
+function LicenseVerifier:ClearVerification()
+	self.VerifiedData = nil
+	self.LastError = nil
+	self.LastCheckTime = 0
+end
+
+return LicenseVerifier
+]]></string>
+			</Properties>
+		</Item>
+		<Item class="StringValue" referent="R000003">
+			<Properties>
+				<string name="Name">LicenseControllerSrc</string>
+				<string name="Value"><![CDATA[--[[
+  LicenseController.lua
+  ──────────────────────────────────────────────
+  Main controller that runs the verification flow.
+  Place in ServerScriptService.
+  Only executes the protected callback after valid license is confirmed.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local LicenseConfig = require(script.Parent.LicenseConfig)
+local LicenseVerifier = require(script.Parent.LicenseVerifier)
+local LicenseUI = require(script.Parent.LicenseUI)
+
+local LicenseController = {}
+
+-- ─── Remote events for UI communication ───
+
+local RemoteEvent = Instance.new("RemoteEvent")
+RemoteEvent.Name = "FlippStudios_LicenseEvent"
+RemoteEvent.Parent = ReplicatedStorage
+
+-- ─── State ───
+
+local Verifier = LicenseVerifier.new(LicenseConfig)
+local ProtectedCallback = nil
+local IsRunning = false
+local CurrentPlayer = nil
+local ActiveRequests = {}
+
+-- ─── Error message mapping ───
+
+local ErrorMessages = {
+	MISSING_LICENSE_KEY = "License key is missing. Please enter your key.",
+	MISSING_PRODUCT_ID = "Product ID is missing. Please check your configuration.",
+	LICENSE_NOT_FOUND = "License key not found. Please check your key and try again.",
+	LICENSE_REVOKED = "This license has been revoked. Please contact support.",
+	LICENSE_NOT_ACTIVE = "This license is not active. Please contact support.",
+	LICENSE_EXPIRED = "This license has expired. Please renew your license.",
+	PRODUCT_MISMATCH = "This license does not match the product. Please check your configuration.",
+	UNIVERSE_MISMATCH = "This license is bound to a different Roblox experience.",
+	RATE_LIMIT_EXCEEDED = "Too many verification attempts. Please wait and try again.",
+	SERVER_ERROR = "The verification server encountered an error. Please try again later.",
+	HTTP_ERROR = "Could not reach the verification server. Please check your internet connection.",
+	CANNOT_REACH_SERVER = "Cannot reach licensing server. Check your internet connection or the server may be down.",
+	HTTP_DISABLED = "HTTP Requests are disabled. Enable in Game Settings > Security.",
+	TIMEOUT = "Verification timed out. The server may be down or unreachable.",
+	NO_SAVED_LICENSE = "No saved license found. Please enter your license key.",
+	INVALID_RESPONSE = "Received an invalid response from the server.",
+	INTERNAL_ERROR = "An internal error occurred. Please try again.",
+	UNKNOWN = "An unknown error occurred. Please contact support.",
+}
+
+function LicenseController:GetErrorMessage(reason)
+	return ErrorMessages[reason] or ErrorMessages.UNKNOWN
+end
+
+-- ─── Fire UI event ───
+
+function LicenseController:_FireUI(player, eventType, data)
+	local args = { eventType }
+	if data then table.insert(args, data) end
+	RemoteEvent:FireClient(player, unpack(args))
+end
+
+-- ─── Handle verify request from UI ───
+
+function LicenseController:_OnVerifyRequest(player, licenseKey)
+	if not player then return end
+
+	print("[LICENSE_CONTROLLER] Verify request from", player.Name, "key:", licenseKey and #licenseKey .. " chars" or "NONE")
+
+	self:_FireUI(player, "Verifying", nil)
+
+	-- Client-side timeout safety net
+	local requestId = tick()
+	ActiveRequests[requestId] = true
+	local timeoutThread = task.delay((LicenseConfig.TIMEOUT or 10) + 3, function()
+		if ActiveRequests[requestId] then
+			ActiveRequests[requestId] = nil
+			warn("[LICENSE_CONTROLLER] Safety timeout fired for", player.Name)
+			if player and player.Parent then
+				self:_FireUI(player, "Error", {
+					reason = "TIMEOUT",
+					message = "Verification timed out. The server may be down.",
+				})
+			end
+		end
+	end)
+
+	local result = Verifier:Verify(licenseKey, LicenseConfig.PRODUCT_ID)
+
+	-- Cancel safety timeout
+	ActiveRequests[requestId] = nil
+	task.cancel(timeoutThread)
+
+	print("[LICENSE_CONTROLLER] Verify result: success=", result.success, "valid=", result.valid, "reason=", result.reason or "nil")
+
+	if result.success and result.valid then
+		print("[LICENSE_CONTROLLER] Verification SUCCESS for", player.Name)
+		self:_FireUI(player, "Success", {
+			productName = result.productName,
+			licenseType = result.licenseType,
+			expiresAt = result.expiresAt,
+			latestVersion = result.latestVersion,
+		})
+		self:_CheckVersion(player, result.latestVersion)
+		self:_StartProtectedSystem(player)
+	else
+		local reason = result.reason or "UNKNOWN"
+		local message = self:GetErrorMessage(reason)
+		print("[LICENSE_CONTROLLER] Verification FAILED for", player.Name, "reason:", reason)
+		self:_FireUI(player, "Error", { reason = reason, message = message })
+	end
+end
+
+-- ─── Version update check ───
+
+function LicenseController:_CheckVersion(player, latestVersion)
+	if not latestVersion then return end
+	local currentVersion = LicenseConfig.CURRENT_VERSION
+	if currentVersion and currentVersion ~= "" and latestVersion ~= currentVersion then
+		self:_FireUI(player, "UpdateAvailable", {
+			currentVersion = currentVersion,
+			latestVersion = latestVersion,
+		})
+	end
+end
+
+-- ─── Start the protected system ───
+
+function LicenseController:_StartProtectedSystem(player)
+	if IsRunning then return end
+	IsRunning = true
+
+	task.spawn(function()
+		local success, err = pcall(ProtectedCallback)
+		if not success then
+			warn("[FlippStudios] Protected system error:", err)
+			IsRunning = false
+		end
+	end)
+end
+
+-- ─── Auto re-verify loop ───
+
+function LicenseController:_ReVerifyLoop()
+	while true do
+		task.wait(LicenseConfig.REVERIFY_INTERVAL)
+		if Verifier:IsVerified() then
+			print("[LICENSE_CONTROLLER] Starting re-verification...")
+
+			-- Timeout-protected re-verify
+			local reverifyTimedOut = false
+			local reverifyCoro = coroutine.running()
+			local timeoutThread = task.delay(LicenseConfig.TIMEOUT or 10, function()
+				reverifyTimedOut = true
+				coroutine.resume(reverifyCoro)
+			end)
+
+			local result = Verifier:ReVerify()
+			task.cancel(timeoutThread)
+
+			if reverifyTimedOut then
+				warn("[LICENSE_CONTROLLER] Re-verification timed out")
+				continue
+			end
+
+			if not result.success or not result.valid then
+				warn("[LICENSE_CONTROLLER] Re-verification failed — disabling system")
+				IsRunning = false
+				Verifier:ClearVerification()
+				if CurrentPlayer then
+					self:_FireUI(CurrentPlayer, "SessionExpired", {
+						message = "License verification failed. Please re-enter your key.",
+					})
+				end
+			else
+				print("[LICENSE_CONTROLLER] Re-verification SUCCESS")
+				self:_CheckVersion(CurrentPlayer, result.latestVersion)
+			end
+		end
+	end
+end
+
+-- ─── Public API ───
+
+function LicenseController:Start(callback)
+	ProtectedCallback = callback
+
+	print("[LICENSE_CONTROLLER] Started — waiting for players...")
+
+	RemoteEvent.OnServerEvent:Connect(function(player, eventType, ...)
+		print("[LICENSE_CONTROLLER] RemoteEvent from", player.Name, "type:", eventType)
+		if eventType == "VerifyLicense" then
+			local licenseKey = ...
+			self:_OnVerifyRequest(player, licenseKey)
+		end
+	end)
+
+	Players.PlayerAdded:Connect(function(player)
+		CurrentPlayer = player
+		print("[LICENSE_CONTROLLER] Player joined:", player.Name)
+
+		task.wait(2)
+
+		-- Step 1: Try session restore via website (no license key needed)
+		print("[LICENSE_CONTROLLER] Attempting session restore for", player.Name)
+		local sessionResult = Verifier:SessionRestore()
+
+		if sessionResult.success and sessionResult.verified then
+			print("[LICENSE_CONTROLLER] Session restored for", player.Name, "— no UI needed")
+			self:_FireUI(player, "AutoVerified", {
+				productName = sessionResult.productName,
+				latestVersion = sessionResult.latestVersion,
+			})
+			self:_CheckVersion(player, sessionResult.latestVersion)
+			self:_StartProtectedSystem(player)
+			return
+		end
+
+		if sessionResult.reason == "LICENSE_REVOKED" then
+			print("[LICENSE_CONTROLLER] License revoked for", player.Name)
+			self:_FireUI(player, "Revoked", { message = "License has been revoked." })
+			return
+		end
+
+		-- Step 2: Fall back to DataStore re-verify
+		print("[LICENSE_CONTROLLER] Session restore failed — trying DataStore re-verify for", player.Name)
+
+		local initialTimedOut = false
+		local initCoro = coroutine.running()
+		local initTimeout = task.delay(LicenseConfig.TIMEOUT or 10, function()
+			initialTimedOut = true
+			coroutine.resume(initCoro)
+		end)
+
+		local result = Verifier:ReVerify()
+		task.cancel(initTimeout)
+
+		if initialTimedOut then
+			print("[LICENSE_CONTROLLER] Initial re-verify timed out — showing UI")
+			self:_FireUI(player, "ShowUI", { savedKey = "" })
+			return
+		end
+
+		if result.success and result.valid then
+			print("[LICENSE_CONTROLLER] Auto-verified for", player.Name)
+			self:_FireUI(player, "AutoVerified", {
+				productName = result.productName,
+				latestVersion = result.latestVersion,
+			})
+			self:_CheckVersion(player, result.latestVersion)
+			self:_StartProtectedSystem(player)
+		else
+			print("[LICENSE_CONTROLLER] No saved license for", player.Name, "— showing UI")
+			local saved = Verifier._LoadFromDataStore and Verifier:_LoadFromDataStore()
+			self:_FireUI(player, "ShowUI", {
+				savedKey = (saved and saved.licenseKey) or "",
+			})
+		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		print("[LICENSE_CONTROLLER] Player left:", player.Name)
+		CurrentPlayer = nil
+	end)
+
+	-- Start re-verify loop
+	task.spawn(function()
+		self:_ReVerifyLoop()
+	end)
+end
+
+return LicenseController
+]]></string>
+			</Properties>
+		</Item>
+		<Item class="StringValue" referent="R000004">
+			<Properties>
+				<string name="Name">LicenseUISrc</string>
+				<string name="Value"><![CDATA[--[[
+  LicenseUI.lua
+  ──────────────────────────────────────────────
+  Modern ScreenGui for license key entry.
+  Dark theme with purple/blue accent styling.
+  Place in ReplicatedStorage and run from a LocalScript in StarterGui.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local RemoteEvent = ReplicatedStorage:WaitForChild("FlippStudios_LicenseEvent")
+
+local LicenseUI = {}
+
+-- ─── Theme colors ───
+
+local Colors = {
+	background = Color3.fromRGB(18, 18, 28),
+	card = Color3.fromRGB(26, 26, 38),
+	cardBorder = Color3.fromRGB(45, 45, 65),
+	accent = Color3.fromRGB(120, 80, 255),
+	accentHover = Color3.fromRGB(140, 100, 255),
+	success = Color3.fromRGB(40, 200, 120),
+	error = Color3.fromRGB(220, 50, 70),
+	text = Color3.fromRGB(220, 220, 240),
+	textDim = Color3.fromRGB(140, 140, 160),
+	textDark = Color3.fromRGB(60, 60, 80),
+	inputBg = Color3.fromRGB(32, 32, 48),
+	overlay = Color3.fromRGB(0, 0, 0),
+}
+
+-- ─── Tween info ───
+
+local TweenInfo_Quick = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TweenInfo_Bounce = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+-- ─── GUI references ───
+
+local ScreenGui
+local MainFrame
+local LicenseInput
+local VerifyButton
+local StatusLabel
+local LoadingSpinner
+local ErrorLabel
+
+-- ─── Helper: Create UI elements ───
+
+function CreateLabel(parent, text, size, color, font)
+	local label = Instance.new("TextLabel")
+	label.Parent = parent
+	label.Text = text or ""
+	label.Size = size or UDim2.fromOffset(200, 24)
+	label.Position = UDim2.fromOffset(0, 0)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = color or Colors.text
+	label.TextSize = 14
+	label.Font = font or Enum.Font.Gotham
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.RichText = true
+	return label
+end
+
+function CreateImageButton(parent, size, image)
+	local btn = Instance.new("ImageButton")
+	btn.Parent = parent
+	btn.Size = size
+	btn.BackgroundTransparency = 1
+	btn.Image = image or ""
+	return btn
+end
+
+-- ─── Build the UI ───
+
+function LicenseUI:Build()
+	if ScreenGui then return end
+
+	-- ScreenGui
+	ScreenGui = Instance.new("ScreenGui")
+	ScreenGui.Name = "FlippStudios_LicenseUI"
+	ScreenGui.ResetOnSpawn = false
+	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	ScreenGui.Parent = PlayerGui
+
+	-- Overlay
+	local overlay = Instance.new("Frame")
+	overlay.Name = "Overlay"
+	overlay.Parent = ScreenGui
+	overlay.Size = UDim2.fromScale(1, 1)
+	overlay.BackgroundColor3 = Colors.overlay
+	overlay.BackgroundTransparency = 0.5
+	overlay.BorderSizePixel = 0
+
+	-- Main container
+	MainFrame = Instance.new("Frame")
+	MainFrame.Name = "MainFrame"
+	MainFrame.Parent = ScreenGui
+	MainFrame.Size = UDim2.fromOffset(380, 400)
+	MainFrame.Position = UDim2.fromScale(0.5, 0.5)
+	MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	MainFrame.BackgroundColor3 = Colors.card
+	MainFrame.BorderSizePixel = 0
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 16)
+	corner.Parent = MainFrame
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Colors.cardBorder
+	stroke.Thickness = 1
+	stroke.Parent = MainFrame
+
+	-- Brand header
+	local headerBar = Instance.new("Frame")
+	headerBar.Parent = MainFrame
+	headerBar.Size = UDim2.fromScale(1, 0.25)
+	headerBar.BackgroundColor3 = Colors.background
+	headerBar.BorderSizePixel = 0
+	headerBar.Position = UDim2.fromOffset(0, 0)
+
+	local headerCorner = Instance.new("UICorner")
+	headerCorner.CornerRadius = UDim.new(0, 16)
+	headerCorner.Parent = headerBar
+
+	-- Clip header bar corner (top only)
+	local headerClip = Instance.new("UICorner")
+	headerClip.CornerRadius = UDim.new(0, 16)
+	headerClip.Parent = headerBar
+
+	-- Glow line
+	local glow = Instance.new("Frame")
+	glow.Parent = headerBar
+	glow.Size = UDim2.fromScale(1, 3)
+	glow.Position = UDim2.fromScale(0, 1)
+	glow.AnchorPoint = Vector2.new(0, 1)
+	glow.BackgroundColor3 = Colors.accent
+	glow.BorderSizePixel = 0
+	glow.BackgroundTransparency = 0.3
+
+	local glowCorner = Instance.new("UICorner")
+	glowCorner.CornerRadius = UDim.new(0, 2)
+	glowCorner.Parent = glow
+
+	-- Logo / Brand icon
+	local icon = Instance.new("Frame")
+	icon.Parent = headerBar
+	icon.Size = UDim2.fromOffset(44, 44)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.BackgroundColor3 = Colors.accent
+	icon.BorderSizePixel = 0
+
+	local iconCorner = Instance.new("UICorner")
+	iconCorner.CornerRadius = UDim.new(0, 12)
+	iconCorner.Parent = icon
+
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Parent = icon
+	iconLabel.Size = UDim2.fromScale(1, 1)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Text = "FS"
+	iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	iconLabel.TextSize = 18
+	iconLabel.Font = Enum.Font.GothamBold
+	iconLabel.TextXAlignment = Enum.TextXAlignment.Center
+	iconLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+	-- Brand text
+	local brandLabel = CreateLabel(headerBar, "Flipp Studios", UDim2.fromScale(1, 0.3), Colors.text, Enum.Font.GothamBold)
+	brandLabel.TextSize = 16
+	brandLabel.Position = UDim2.fromScale(0, 0.72)
+
+	local subLabel = CreateLabel(headerBar, "License Verification", UDim2.fromScale(1, 0.2), Colors.textDim, Enum.Font.Gotham)
+	subLabel.TextSize = 12
+	subLabel.Position = UDim2.fromScale(0, 0.88)
+
+	-- License key label
+	local keyLabel = CreateLabel(MainFrame, "LICENSE KEY", UDim2.fromOffset(340, 18), Colors.textDim, Enum.Font.GothamBold)
+	keyLabel.TextSize = 10
+	keyLabel.Position = UDim2.fromOffset(20, 120)
+	keyLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- Input field
+	LicenseInput = Instance.new("TextBox")
+	LicenseInput.Parent = MainFrame
+	LicenseInput.Name = "LicenseInput"
+	LicenseInput.Size = UDim2.fromOffset(340, 42)
+	LicenseInput.Position = UDim2.fromOffset(20, 142)
+	LicenseInput.BackgroundColor3 = Colors.inputBg
+	LicenseInput.BorderSizePixel = 0
+	LicenseInput.TextColor3 = Colors.text
+	LicenseInput.TextSize = 14
+	LicenseInput.Font = Enum.Font.Code
+	LicenseInput.PlaceholderText = "Enter your license key"
+	LicenseInput.PlaceholderColor3 = Colors.textDark
+	LicenseInput.ClearTextOnFocus = false
+	LicenseInput.TextXAlignment = Enum.TextXAlignment.Center
+
+	local inputCorner = Instance.new("UICorner")
+	inputCorner.CornerRadius = UDim.new(0, 10)
+	inputCorner.Parent = LicenseInput
+
+	local inputStroke = Instance.new("UIStroke")
+	inputStroke.Color = Colors.cardBorder
+	inputStroke.Thickness = 1
+	inputStroke.Parent = LicenseInput
+
+	-- Verify button
+	VerifyButton = Instance.new("ImageButton")
+	VerifyButton.Parent = MainFrame
+	VerifyButton.Name = "VerifyButton"
+	VerifyButton.Size = UDim2.fromOffset(340, 46)
+	VerifyButton.Position = UDim2.fromOffset(20, 200)
+	VerifyButton.BackgroundColor3 = Colors.accent
+	VerifyButton.BorderSizePixel = 0
+	VerifyButton.AutoButtonColor = false
+	VerifyButton.BackgroundTransparency = 0
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 10)
+	btnCorner.Parent = VerifyButton
+
+	local btnText = Instance.new("TextLabel")
+	btnText.Parent = VerifyButton
+	btnText.Name = "ButtonText"
+	btnText.Size = UDim2.fromScale(1, 1)
+	btnText.BackgroundTransparency = 1
+	btnText.Text = "VERIFY"
+	btnText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btnText.TextSize = 15
+	btnText.Font = Enum.Font.GothamBold
+	btnText.TextXAlignment = Enum.TextXAlignment.Center
+
+	-- Loading spinner (hidden by default)
+	LoadingSpinner = Instance.new("Frame")
+	LoadingSpinner.Parent = MainFrame
+	LoadingSpinner.Name = "LoadingSpinner"
+	LoadingSpinner.Size = UDim2.fromOffset(24, 24)
+	LoadingSpinner.Position = UDim2.fromOffset(178, 214)
+	LoadingSpinner.BackgroundTransparency = 1
+	LoadingSpinner.Visible = false
+
+	local spinnerArc = Instance.new("UICorner")
+	spinnerArc.CornerRadius = UDim.new(1, 0)
+	spinnerArc.Parent = LoadingSpinner
+
+	local spinnerStroke = Instance.new("UIStroke")
+	spinnerStroke.Color = Colors.accent
+	spinnerStroke.Thickness = 3
+	spinnerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	spinnerStroke.Parent = LoadingSpinner
+
+	-- Status label
+	StatusLabel = CreateLabel(MainFrame, "", UDim2.fromOffset(340, 20), Colors.text, Enum.Font.Gotham)
+	StatusLabel.TextSize = 12
+	StatusLabel.Position = UDim2.fromOffset(20, 258)
+	StatusLabel.Visible = false
+
+	-- Error label
+	ErrorLabel = CreateLabel(MainFrame, "", UDim2.fromOffset(340, 36), Colors.error, Enum.Font.Gotham)
+	ErrorLabel.TextSize = 12
+	ErrorLabel.Position = UDim2.fromOffset(20, 280)
+	ErrorLabel.Visible = false
+	ErrorLabel.TextWrapped = true
+	ErrorLabel.TextYAlignment = Enum.TextYAlignment.Top
+	ErrorLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+	-- Footer text
+	local footerText = CreateLabel(MainFrame, "Purchased from robloxdevmarket.vercel.app", UDim2.fromOffset(340, 20), Colors.textDark, Enum.Font.Gotham)
+	footerText.TextSize = 10
+	footerText.Position = UDim2.fromOffset(20, 370)
+
+	-- Entry animation
+	MainFrame.Position = UDim2.fromScale(0.5, 0.45)
+	local goal = UDim2.fromScale(0.5, 0.5)
+	TweenService:Create(MainFrame, TweenInfo_Bounce, { Position = goal }):Play()
+
+	overlay.BackgroundTransparency = 1
+	TweenService:Create(overlay, TweenInfo_Quick, { BackgroundTransparency = 0.5 }):Play()
+end
+
+-- ─── UI state management ───
+
+function LicenseUI:Show()
+	if not ScreenGui then self:Build() end
+	ScreenGui.Enabled = true
+end
+
+function LicenseUI:Hide()
+	if ScreenGui then
+		local overlay = ScreenGui:FindFirstChild("Overlay")
+		if overlay then
+			TweenService:Create(overlay, TweenInfo_Quick, { BackgroundTransparency = 1 }):Play()
+		end
+		local tween = TweenService:Create(MainFrame, TweenInfo_Quick, {
+			Position = UDim2.fromScale(0.5, 0.45),
+			BackgroundTransparency = 1,
+		})
+		tween:Play()
+		tween.Completed:Connect(function()
+			ScreenGui.Enabled = false
+			MainFrame.BackgroundTransparency = 0
+		end)
+	end
+end
+
+function LicenseUI:SetStatus(text, color)
+	StatusLabel.Text = text or ""
+	StatusLabel.TextColor3 = color or Colors.text
+	StatusLabel.Visible = text and text ~= ""
+end
+
+function LicenseUI:SetError(text)
+	ErrorLabel.Text = text or ""
+	ErrorLabel.Visible = text and text ~= ""
+	if text and text ~= "" then
+		StatusLabel.Visible = false
+	end
+end
+
+function LicenseUI:ShowLoading(show)
+	VerifyButton.Visible = not show
+	LoadingSpinner.Visible = show
+	if show then
+		self:SetStatus("Verifying license...", Colors.textDim)
+	end
+end
+
+function LicenseUI:ShowSuccess(data)
+	self:ShowLoading(false)
+	self:SetError(nil)
+
+	local name = (data and data.productName) or "your product"
+	local ltype = (data and data.licenseType) or ""
+	local expires = (data and data.expiresAt) or ""
+
+	local msg = "License verified — " .. name
+	if ltype == "subscription" and expires then
+		msg = msg .. "\nExpires: " .. expires
+	end
+	self:SetStatus(msg, Colors.success)
+
+	-- Success glow
+	VerifyButton.BackgroundColor3 = Colors.success
+	VerifyButton.ButtonText.Text = "VERIFIED"
+
+	task.wait(1.5)
+	self:Hide()
+end
+
+function LicenseUI:ShowError(data)
+	self:ShowLoading(false)
+	self:SetStatus(nil)
+
+	local reason = (data and data.reason) or "UNKNOWN"
+	local message = (data and data.message) or "An error occurred."
+	self:SetError(message)
+
+	-- Shake animation
+	local originalPos = MainFrame.Position
+	local shake1 = UDim2.fromOffset(originalPos.X.Offset - 8, originalPos.Y.Offset)
+	local shake2 = UDim2.fromOffset(originalPos.X.Offset + 8, originalPos.Y.Offset)
+	TweenService:Create(MainFrame, TweenInfo_Quick, { Position = shake1 }):Play()
+	task.wait(0.08)
+	TweenService:Create(MainFrame, TweenInfo_Quick, { Position = shake2 }):Play()
+	task.wait(0.08)
+	TweenService:Create(MainFrame, TweenInfo_Quick, { Position = originalPos }):Play()
+
+	VerifyButton.BackgroundColor3 = Colors.error
+	task.wait(0.5)
+	VerifyButton.BackgroundColor3 = Colors.accent
+end
+
+-- ─── Spinner rotation loop ───
+
+function LicenseUI:_StartSpinner()
+	task.spawn(function()
+		while LoadingSpinner and LoadingSpinner.Visible do
+			LoadingSpinner.Rotation = LoadingSpinner.Rotation + 6
+			task.wait(0.016)
+		end
+	end)
+end
+
+-- ─── Initialize event handling ───
+
+function LicenseUI:Init(savedKey)
+	self:Build()
+
+	-- Set saved key if exists
+	if savedKey and savedKey ~= "" then
+		LicenseInput.Text = savedKey
+	end
+
+	-- Verify button handler
+	VerifyButton.MouseButton1Click:Connect(function()
+		local key = LicenseInput.Text:match("^%s*(.-)%s*$") -- trim whitespace
+		if key and key ~= "" then
+			self:ShowLoading(true)
+			self:SetError(nil)
+			VerifyButton.BackgroundColor3 = Colors.accent
+			RemoteEvent:FireServer("VerifyLicense", key)
+		else
+			self:SetError("Please enter a valid license key.")
+		end
+	end)
+
+	-- Button hover effect
+	VerifyButton.MouseEnter:Connect(function()
+		if VerifyButton.Visible then
+			TweenService:Create(VerifyButton, TweenInfo_Quick, {
+				BackgroundColor3 = Colors.accentHover,
+			}):Play()
+		end
+	end)
+	VerifyButton.MouseLeave:Connect(function()
+		if VerifyButton.Visible then
+			TweenService:Create(VerifyButton, TweenInfo_Quick, {
+				BackgroundColor3 = Colors.accent,
+			}):Play()
+		end
+	end)
+
+	-- Enter key submits
+	LicenseInput.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			VerifyButton.MouseButton1Click:Fire()
+		end
+	end)
+
+	-- Remote event listeners
+	RemoteEvent.OnClientEvent:Connect(function(eventType, data)
+		if eventType == "ShowUI" then
+			self:Show()
+			if data and data.savedKey and data.savedKey ~= "" then
+				LicenseInput.Text = data.savedKey
+			end
+		elseif eventType == "Verifying" then
+			self:ShowLoading(true)
+		elseif eventType == "Success" then
+			self:ShowSuccess(data)
+		elseif eventType == "Error" then
+			self:ShowError(data)
+		elseif eventType == "AutoVerified" then
+			self:ShowSuccess(data)
+		elseif eventType == "SessionExpired" then
+			self:Show()
+			self:SetError(data and data.message or "Session expired.")
+			VerifyButton.BackgroundColor3 = Colors.accent
+			VerifyButton.ButtonText.Text = "VERIFY"
+		elseif eventType == "UpdateAvailable" then
+			if data then
+				local notificationText = "New update available: v" .. (data.latestVersion or "?")
+				game:GetService("StarterGui"):SetCore("SendNotification", {
+					Title = "Flipp Studios",
+					Text = notificationText,
+					Duration = 8,
+				})
+			end
+		end
+	end)
+end
+
+return LicenseUI
+]]></string>
+			</Properties>
+		</Item>
+		<Item class="StringValue" referent="R000005">
+			<Properties>
+				<string name="Name">LicenseLoaderSrc</string>
+				<string name="Value"><![CDATA[local Configuration = require(script:WaitForChild("Configuration"))
+local LicenseVerifier = require(script:WaitForChild("LicenseVerifier"))
+
+-- ─── Roblox Identifiers ──────────────────────────────────────
+local placeId = game.PlaceId
+local universeId = game.GameId
+local creatorId = game.CreatorId
+
+-- ─── Validate Configuration ──────────────────────────────────
+if Configuration.LicenseKey == "" or Configuration.ProductId == "" then
+	warn(string.format(
+		"[%s] License configuration missing. Set LicenseKey and ProductId in Configuration.",
+		Configuration.MarketplaceName
+	))
+	return
+end
+
+-- ─── Verify License ──────────────────────────────────────────
+local success, result = LicenseVerifier.verify(Configuration, placeId, universeId, creatorId)
+
+if not success then
+	local reason = tostring(result)
+
+	if reason == "LICENSE_NOT_FOUND" then
+		warn(string.format("[%s] License key not found. Check your key.", Configuration.MarketplaceName))
+	elseif reason == "LICENSE_REVOKED" then
+		warn(string.format("[%s] License has been revoked. Contact support.", Configuration.MarketplaceName))
+	elseif reason == "LICENSE_EXPIRED" then
+		warn(string.format("[%s] License has expired. Renew on the marketplace.", Configuration.MarketplaceName))
+	elseif reason == "PRODUCT_MISMATCH" then
+		warn(string.format("[%s] License does not match this product. Check ProductId.", Configuration.MarketplaceName))
+	elseif reason == "UNIVERSE_MISMATCH" then
+		warn(string.format("[%s] License bound to another universe. Anti-leak triggered.", Configuration.MarketplaceName))
+	elseif reason == "RATE_LIMIT_EXCEEDED" then
+		warn(string.format("[%s] Too many verification attempts. Try again later.", Configuration.MarketplaceName))
+	elseif reason == "CANNOT_REACH_SERVER" then
+		warn(string.format("[%s] Cannot reach licensing server at %s.", Configuration.MarketplaceName, Configuration.ApiUrl))
+		print(string.format("[%s] Check that the website is online and ApiUrl is correct.", Configuration.MarketplaceName))
+	elseif reason == "NETWORK_ERROR" or reason == "INVALID_RESPONSE" then
+		warn(string.format("[%s] Could not reach verification server. Check ApiUrl.", Configuration.MarketplaceName))
+	else
+		warn(string.format("[%s] Verification failed: %s", Configuration.MarketplaceName, reason))
+	end
+
+	-- Anti-leak: do not load protected content
+	return
+end
+
+-- ─── License Valid ───────────────────────────────────────────
+local productName = result.productName or "Unknown Product"
+local latestVersion = result.latestVersion or "1.0.0"
+local licenseType = result.licenseType or "lifetime"
+local expiresAt = result.expiresAt or ""
+local activationCount = result.activationCount or 1
+local boundUniverseId = result.boundUniverseId or universeId
+
+print(string.format("[%s] License verified successfully.", Configuration.MarketplaceName))
+print(string.format("[%s] Product: %s", Configuration.MarketplaceName, productName))
+print(string.format("[%s] Type: %s", Configuration.MarketplaceName, licenseType))
+print(string.format("[%s] Activation: #%d (Universe: %d)", Configuration.MarketplaceName, activationCount, boundUniverseId))
+
+if licenseType == "subscription" and expiresAt ~= "" then
+	print(string.format("[%s] Expires: %s", Configuration.MarketplaceName, expiresAt))
+end
+
+-- ─── Version Check ──────────────────────────────────────────
+local currentVersion = Configuration.LocalVersion or "1.0.0"
+
+if latestVersion ~= currentVersion then
+	print(string.format(
+		"[%s] Update Available: Current v%s → Latest v%s",
+		Configuration.MarketplaceName,
+		currentVersion,
+		latestVersion
+	))
+end
+
+-- ─── License Data (for integration) ──────────────────────────
+local FlippStudios = {
+	Verified = true,
+	ProductName = productName,
+	LicenseType = licenseType,
+	ExpiresAt = expiresAt,
+	LatestVersion = latestVersion,
+	CurrentVersion = currentVersion,
+	ActivationCount = activationCount,
+	BoundUniverseId = boundUniverseId,
+}
+
+-- Expose to other scripts via _G (lightweight bridge).
+-- Other scripts can check: _G.FlippStudios.Verified
+_G.FlippStudios = FlippStudios
+]]></string>
+			</Properties>
+		</Item>
+		<Item class="StringValue" referent="R000006">
+			<Properties>
+				<string name="Name">LicenseUILoaderSrc</string>
+				<string name="Value"><![CDATA[local LicenseUI = require(game:GetService("ReplicatedStorage"):WaitForChild("LicenseUI"))
+LicenseUI:Init("")]]></string>
+			</Properties>
+		</Item>
+	</Item>
+</roblox>

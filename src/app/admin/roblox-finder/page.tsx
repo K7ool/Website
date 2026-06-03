@@ -24,6 +24,9 @@ interface RobloxUserData {
   online: number;
   lastOnline: string;
   lastLocation: string;
+  placeId: number | null;
+  rootPlaceId: number | null;
+  gameId: string | null;
   robux: number;
   userStatus: string;
   games: any[];
@@ -309,7 +312,29 @@ export default function RobloxFinderPage() {
               <GlassCard>
                 <h3 className="text-sm font-semibold text-white mb-3">Presence & Economy</h3>
                 <Field label="Status" value={online?.label || "Unknown"} />
-                {data.lastLocation && <Field label="Last Location" value={data.lastLocation} />}
+                {data.online === 2 && data.lastLocation && (
+                  <div className="flex items-center justify-between gap-2 py-2 border-b border-purple-500/5 last:border-0">
+                    <span className="text-xs text-gray-500 uppercase tracking-wider shrink-0">In Game</span>
+                    <a
+                      href={`https://www.roblox.com/games/${data.rootPlaceId || data.placeId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-400 hover:text-blue-300 underline truncate"
+                    >
+                      {data.lastLocation}
+                    </a>
+                  </div>
+                )}
+                {data.online === 2 && data.gameId && (
+                  <div className="flex items-center justify-between gap-2 py-2 border-b border-purple-500/5 last:border-0">
+                    <span className="text-xs text-gray-500 uppercase tracking-wider shrink-0">Server ID</span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-sm text-white font-mono truncate text-right text-xs">{data.gameId}</span>
+                      <CopyBtn text={data.gameId} />
+                    </div>
+                  </div>
+                )}
+                {data.online !== 2 && data.lastLocation && <Field label="Last Location" value={data.lastLocation} />}
                 <Field label="Last Online" value={data.lastOnline ? new Date(data.lastOnline).toLocaleString() : "—"} copy={data.lastOnline || ""} />
                 <Field label="Robux" value={`${data.robux.toLocaleString()} R$`} copy={String(data.robux)} />
                 <Field label="Friends" value={data.friendsCount.toLocaleString()} copy={String(data.friendsCount)} />

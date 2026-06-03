@@ -90,6 +90,9 @@ export async function POST(req: NextRequest) {
       online: presenceData?.userPresenceType ?? 0,
       lastOnline: presenceData?.lastOnline || "",
       lastLocation: presenceData?.lastLocation || "",
+      placeId: presenceData?.placeId ?? null,
+      rootPlaceId: presenceData?.rootPlaceId ?? null,
+      gameId: presenceData?.gameId || null,
       robux: currency?.robux ?? 0,
       userStatus: status?.status || "",
       games: (games?.data || []).slice(0, 50).map((g: any) => ({

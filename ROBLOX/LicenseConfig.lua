@@ -8,14 +8,14 @@
 
 local Config = {}
 
--- Your license key (purchased from https://flippstudios.com)
+-- Your license key (purchased from https://robloxdevmarket.vercel.app)
 Config.LICENSE_KEY = ""
 
--- Product ID matching the product on flippstudios.com
+-- Product ID matching the product on robloxdevmarket.vercel.app
 Config.PRODUCT_ID = ""
 
 -- API endpoint — POST endpoint that verifies licenses
-Config.API_URL = "https://romarketdev.netlify.app/api/license/verify"
+Config.API_URL = "https://robloxdevmarket.vercel.app/api/license/verify"
 
 -- HTTP request timeout in seconds
 Config.TIMEOUT = 10

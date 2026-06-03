@@ -274,7 +274,7 @@ function LicenseUI:Build()
 	ErrorLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 	-- Footer text
-	local footerText = CreateLabel(MainFrame, "Purchased from flippstudios.com", UDim2.fromOffset(340, 20), Colors.textDark, Enum.Font.Gotham)
+	local footerText = CreateLabel(MainFrame, "Purchased from robloxdevmarket.vercel.app", UDim2.fromOffset(340, 20), Colors.textDark, Enum.Font.Gotham)
 	footerText.TextSize = 10
 	footerText.Position = UDim2.fromOffset(20, 370)
 
