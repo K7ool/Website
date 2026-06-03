@@ -7,6 +7,7 @@ import ParticleBackground from "@/components/ParticleBackground";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import StatusBanner from "@/components/status/StatusBanner";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <FooterWrapper />
           <CookieConsentBanner />
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
