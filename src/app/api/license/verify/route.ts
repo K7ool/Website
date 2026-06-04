@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { sendLicenseWebhook, activationEmbed } from "@/lib/discord-webhook";
+import { sendLicenseWebhook, activationEmbed, expiredEmbed } from "@/lib/discord-webhook";
 
 const RATE_LIMIT_WINDOW = 60_000;
 const RATE_LIMIT_MAX = 10;
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       return fail("RATE_LIMIT_EXCEEDED", 429);
     }
 
-    let body: { licenseKey?: string; productId?: string; placeId?: number; universeId?: number; creatorId?: number; robloxUserId?: number };
+    let body: { licenseKey?: string; productId?: string; placeId?: number; universeId?: number; creatorId?: number; robloxUserId?: number; gameName?: string };
     try {
       body = await req.json();
     } catch {
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     console.log("[LICENSE_VERIFY] Body:", JSON.stringify(body));
 
-    const { licenseKey, productId, placeId, universeId, creatorId, robloxUserId } = body;
+    const { licenseKey, productId, placeId, universeId, creatorId, robloxUserId, gameName } = body;
 
     if (!licenseKey || typeof licenseKey !== "string") {
       return fail("MISSING_LICENSE_KEY", 400);
@@ -98,6 +98,13 @@ export async function POST(req: NextRequest) {
     if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
       console.warn(`[LICENSE_VERIFY] License expired: ${licId}, expiresAt=${lic.expiresAt}`);
       await adminDb.collection("licenses").doc(licId).update({ status: "expired" });
+      sendLicenseWebhook(expiredEmbed({
+        key: licenseKey.trim(),
+        productName: lic.productName || "Unknown",
+        userId: lic.userId || "",
+        licenseId: licId,
+        expiresAt: lic.expiresAt,
+      }));
       return fail("LICENSE_EXPIRED");
     }
 
@@ -136,8 +143,15 @@ export async function POST(req: NextRequest) {
         key: licenseKey.trim(),
         productName: lic.productName || "Unknown",
         userId: lic.userId || "",
+        licenseId: licId,
         universeId: universeId,
+        placeId: placeId,
+        creatorId: creatorId,
         robloxUserId: robloxUserId,
+        gameName: gameName,
+        bindingType: bindingType,
+        expiresAt: lic.expiresAt || undefined,
+        licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
       }));
     } else {
       if (Number(lic[bindField.name]) !== Number(bindField.value)) {

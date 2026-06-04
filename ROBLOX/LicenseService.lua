@@ -531,6 +531,7 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 		universeId = ctx.universeId,
 		creatorId = ctx.creatorId,
 		robloxUserId = player.UserId,
+		gameName = game.Name,
 	}
 	local jsonOk, payloadJson = pcall(function()
 		return HttpService:JSONEncode(payload)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { cacheWrap } from "@/lib/api-cache";
+import { sendLicenseWebhook, expiredEmbed } from "@/lib/discord-webhook";
 
 const RATE_LIMIT_WINDOW = 60_000;
 const RATE_LIMIT_MAX = 50;
@@ -83,6 +84,13 @@ export async function POST(req: NextRequest) {
 
       if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
         await adminDb.collection("licenses").doc(licSnap.docs[0].id).update({ status: "expired" });
+        sendLicenseWebhook(expiredEmbed({
+          key: lic.key || "",
+          productName: lic.productName || "Unknown",
+          userId: lic.userId || "",
+          licenseId: licSnap.docs[0].id,
+          expiresAt: lic.expiresAt,
+        }));
         return { valid: false, reason: "LICENSE_EXPIRED" };
       }
 

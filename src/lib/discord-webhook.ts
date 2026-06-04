@@ -37,22 +37,48 @@ export function activationEmbed(data: {
   key: string;
   productName: string;
   userId: string;
+  licenseId: string;
   universeId?: number;
+  placeId?: number;
+  creatorId?: number;
   robloxUserId?: number;
+  gameName?: string;
+  bindingType?: string;
+  expiresAt?: string;
+  licenseType?: string;
 }): WebhookEmbed[] {
   return [
     {
-      title: "License Activated",
+      title: "🎮 License Activated In-Game",
       description: `License **${data.key}** was activated`,
       color: 0x00ff00,
       fields: [
         { name: "Product", value: data.productName, inline: true },
+        { name: "License ID", value: `\`${data.licenseId}\``, inline: true },
         { name: "User", value: `\`${data.userId}\``, inline: true },
+        ...(data.gameName
+          ? [{ name: "Game", value: data.gameName, inline: true }]
+          : []),
         ...(data.universeId
-          ? [{ name: "Universe", value: String(data.universeId), inline: true }]
+          ? [{ name: "Universe ID", value: String(data.universeId), inline: true }]
+          : []),
+        ...(data.placeId
+          ? [{ name: "Place ID", value: String(data.placeId), inline: true }]
+          : []),
+        ...(data.creatorId
+          ? [{ name: "Creator ID", value: String(data.creatorId), inline: true }]
           : []),
         ...(data.robloxUserId
-          ? [{ name: "Roblox User", value: String(data.robloxUserId), inline: true }]
+          ? [{ name: "Roblox User ID", value: String(data.robloxUserId), inline: true }]
+          : []),
+        ...(data.bindingType
+          ? [{ name: "Binding", value: data.bindingType, inline: true }]
+          : []),
+        ...(data.licenseType
+          ? [{ name: "Type", value: data.licenseType, inline: true }]
+          : []),
+        ...(data.expiresAt
+          ? [{ name: "Expires", value: new Date(data.expiresAt).toLocaleString(), inline: true }]
           : []),
       ],
     },
@@ -76,6 +102,28 @@ export function revokeEmbed(data: {
         ...(data.universeId
           ? [{ name: "Universe", value: String(data.universeId), inline: true }]
           : []),
+      ],
+    },
+  ];
+}
+
+export function expiredEmbed(data: {
+  key: string;
+  productName: string;
+  userId: string;
+  licenseId: string;
+  expiresAt: string;
+}): WebhookEmbed[] {
+  return [
+    {
+      title: "⌛ License Expired",
+      description: `License **${data.key}** has expired`,
+      color: 0xff6600,
+      fields: [
+        { name: "Product", value: data.productName, inline: true },
+        { name: "License ID", value: `\`${data.licenseId}\``, inline: true },
+        { name: "User", value: `\`${data.userId}\``, inline: true },
+        { name: "Expired At", value: new Date(data.expiresAt).toLocaleString(), inline: true },
       ],
     },
   ];
