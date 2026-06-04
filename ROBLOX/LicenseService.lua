@@ -625,6 +625,7 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 				serverId = tostring(game.JobId),
 				playerCount = #Players:GetPlayers(),
 				maxPlayers = 50,
+				gameName = game.Name,
 			}, 5)
 			if hbResult and hbResult.sessionId then
 				activationRecord.SessionId = hbResult.sessionId
@@ -883,6 +884,7 @@ function LicenseController:_HeartbeatLoop()
 			serverId = tostring(game.JobId),
 			playerCount = #Players:GetPlayers(),
 			maxPlayers = 50,
+			gameName = game.Name,
 		}
 		if activation.SessionId then
 			payload.sessionId = activation.SessionId

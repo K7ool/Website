@@ -12,23 +12,16 @@ async function fetchJson(url: string) {
   } catch { return null; }
 }
 
-async function getGameInfo(universeIds: string[]): Promise<Record<string, { name: string; thumbnail: string }>> {
+async function getThumbnails(universeIds: string[]): Promise<Record<string, string>> {
   if (!universeIds.length) return {};
-  const gameRes = await fetchJson(`https://games.roblox.com/v1/games?universeIds=${universeIds.join(",")}`);
-  const games: Record<string, { name: string; thumbnail: string }> = {};
-  if (gameRes?.data) {
-    for (const g of gameRes.data) {
-      games[String(g.id)] = { name: g.name, thumbnail: "" };
-    }
-  }
   const thumbRes = await fetchJson(`https://thumbnails.roblox.com/v1/games/icons?universeIds=${universeIds.join(",")}&size=512x512&format=Png`);
+  const thumbnails: Record<string, string> = {};
   if (thumbRes?.data) {
     for (const t of thumbRes.data) {
-      const id = String(t.targetId);
-      if (games[id]) games[id].thumbnail = t.imageUrl || "";
+      thumbnails[String(t.targetId)] = t.imageUrl || "";
     }
   }
-  return games;
+  return thumbnails;
 }
 
 export async function GET() {
@@ -48,12 +41,12 @@ export async function GET() {
     });
 
     const universeIds = [...new Set(active.map((s: any) => s.universeId).filter(Boolean))] as string[];
-    const gameInfo = await getGameInfo(universeIds);
+    const thumbnails = await getThumbnails(universeIds);
 
     const enrich = (s: any) => ({
       ...s,
-      gameName: s.universeId ? gameInfo[s.universeId]?.name || null : null,
-      gameThumbnail: s.universeId ? gameInfo[s.universeId]?.thumbnail || null : null,
+      gameName: s.gameName || "Unknown Game",
+      gameThumbnail: s.universeId ? thumbnails[s.universeId] || null : null,
     });
 
     return NextResponse.json({
