@@ -31,6 +31,10 @@ if not success then
 		warn(string.format("[%s] License does not match this product. Check ProductId.", Configuration.MarketplaceName))
 	elseif reason == "UNIVERSE_MISMATCH" then
 		warn(string.format("[%s] License bound to another universe. Anti-leak triggered.", Configuration.MarketplaceName))
+	elseif reason == "CREATOR_MISMATCH" then
+		warn(string.format("[%s] License bound to another creator. Anti-leak triggered.", Configuration.MarketplaceName))
+	elseif reason == "USER_MISMATCH" then
+		warn(string.format("[%s] License bound to another user. Anti-leak triggered.", Configuration.MarketplaceName))
 	elseif reason == "RATE_LIMIT_EXCEEDED" then
 		warn(string.format("[%s] Too many verification attempts. Try again later.", Configuration.MarketplaceName))
 	elseif reason == "CANNOT_REACH_SERVER" then
