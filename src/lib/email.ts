@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 
-const FROM = process.env.EMAIL_FROM || "Flipp Studios <onboarding@resend.dev>";
+const FROM = "Flipp Studios <onboarding@resend.dev>";
 
 let _resend: Resend | null = null;
 function getResend(): Resend | null {
