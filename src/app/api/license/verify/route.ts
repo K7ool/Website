@@ -138,21 +138,6 @@ export async function POST(req: NextRequest) {
       await adminDb.collection("licenses").doc(licId).update(updateData);
 
       console.log(`[LICENSE_VERIFY] First activation — bound ${bindField.label} ${bindField.value} to license ${licId}`);
-
-      sendLicenseWebhook(activationEmbed({
-        key: licenseKey.trim(),
-        productName: lic.productName || "Unknown",
-        userId: lic.userId || "",
-        licenseId: licId,
-        universeId: universeId,
-        placeId: placeId,
-        creatorId: creatorId,
-        robloxUserId: robloxUserId,
-        gameName: gameName,
-        bindingType: bindingType,
-        expiresAt: lic.expiresAt || undefined,
-        licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
-      }));
     } else {
       if (Number(lic[bindField.name]) !== Number(bindField.value)) {
         console.warn(`[LICENSE_VERIFY] ${bindField.label} mismatch: bound=${lic[bindField.name]}, request=${bindField.value} for license ${licId}`);
@@ -170,6 +155,21 @@ export async function POST(req: NextRequest) {
 
       console.log(`[LICENSE_VERIFY] Verification recorded for license ${licId} (activation #${currentCount})`);
     }
+
+    await sendLicenseWebhook(activationEmbed({
+      key: licenseKey.trim(),
+      productName: lic.productName || "Unknown",
+      userId: lic.userId || "",
+      licenseId: licId,
+      universeId: universeId,
+      placeId: placeId,
+      creatorId: creatorId,
+      robloxUserId: robloxUserId,
+      gameName: gameName,
+      bindingType: bindingType,
+      expiresAt: lic.expiresAt || undefined,
+      licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
+    }));
 
     console.log("[LICENSE_VERIFY] Querying database");
 
