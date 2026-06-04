@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
             return {
               verified: true,
               licenseFound: true,
+              licenseId: doc.id,
               licenseKey: lic.key,
               productId: lic.productId,
               productName: lic.productName || "",

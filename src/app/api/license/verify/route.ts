@@ -191,6 +191,8 @@ export async function POST(req: NextRequest) {
 
     return success({
       valid: true,
+      licenseId: licId,
+      licenseKey: licenseKey.trim(),
       productName: lic.productName || "",
       licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
       expiresAt: lic.expiresAt || null,

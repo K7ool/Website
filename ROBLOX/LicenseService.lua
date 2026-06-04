@@ -590,7 +590,7 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 		if activityUrl then
 			self:_PostJson(activityUrl, {
 				licenseKey = licenseKey,
-				licenseId = decoded.licenseKey or licenseKey,
+				licenseId = decoded.licenseId or licenseKey,
 				userId = tostring(player.UserId),
 				type = "activate",
 				details = {
@@ -598,18 +598,6 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 					placeId = game.PlaceId,
 					playerName = player.Name,
 				},
-			}, 5)
-		end
-		-- First heartbeat
-		local heartbeatUrl = LicenseRuntime.GetHeartbeatUrl()
-		if heartbeatUrl then
-			self:_PostJson(heartbeatUrl, {
-				licenseKey = licenseKey,
-				universeId = game.GameId,
-				placeId = game.PlaceId,
-				serverId = tostring(HttpService:GenerateGUID(false)),
-				playerCount = #Players:GetPlayers(),
-				maxPlayers = 50,
 			}, 5)
 		end
 		-- Store features from verify response
@@ -626,6 +614,23 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 			Status = "active",
 			Features = decoded.features or nil,
 		}
+		-- First heartbeat (after activationRecord created)
+		local heartbeatUrl = LicenseRuntime.GetHeartbeatUrl()
+		if heartbeatUrl then
+			local hbResult = self:_PostJson(heartbeatUrl, {
+				licenseId = activationRecord.LicenseId,
+				licenseKey = activationRecord.LicenseKey,
+				universeId = game.GameId,
+				placeId = game.PlaceId,
+				serverId = tostring(game.JobId),
+				playerCount = #Players:GetPlayers(),
+				maxPlayers = 50,
+			}, 5)
+			if hbResult and hbResult.sessionId then
+				activationRecord.SessionId = hbResult.sessionId
+				activationRecord.ServerJobId = tostring(game.JobId)
+			end
+		end
 		if not LicenseRuntime.SaveActivation(activationRecord) then
 			self:_FireUI(player, "Error", { reason = "INTERNAL_ERROR", message = "Failed to save activation. Please try again." })
 			return
@@ -740,7 +745,7 @@ function LicenseController:_SilentReVerify(player)
 		self:_FireTimeline(player, "activated", "complete")
 		self:_FireLog(player, "SESSION", "Session restored successfully")
 		local activationRecord = {
-			LicenseId = decoded.licenseKey or tostring(HttpService:GenerateGUID(false)),
+			LicenseId = decoded.licenseId or decoded.licenseKey or tostring(HttpService:GenerateGUID(false)),
 			LicenseKey = decoded.licenseKey or "",
 			ProductId = LicenseRuntime.GetProductId() or LicenseConfig.PRODUCT_ID,
 			UniverseId = game.GameId,
@@ -870,15 +875,19 @@ function LicenseController:_HeartbeatLoop()
 		if not heartbeatUrl or not activation then continue end
 		if LicenseRuntime.IsRequestPending("heartbeat") then continue end
 		LicenseRuntime.MarkRequestPending("heartbeat")
-		self:_PostJson(heartbeatUrl, {
+		local payload = {
 			licenseId = activation.LicenseId,
 			licenseKey = activation.LicenseKey,
 			universeId = game.GameId,
 			placeId = game.PlaceId,
-			serverId = activation.LicenseId,
+			serverId = tostring(game.JobId),
 			playerCount = #Players:GetPlayers(),
 			maxPlayers = 50,
-		}, 5)
+		}
+		if activation.SessionId then
+			payload.sessionId = activation.SessionId
+		end
+		self:_PostJson(heartbeatUrl, payload, 5)
 		LicenseRuntime.MarkRequestComplete("heartbeat")
 	end
 end
