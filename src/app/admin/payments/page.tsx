@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { orderBy } from "firebase/firestore";
 import GlassCard from "@/components/GlassCard";
 import { paymentRequestService, orderService, licenseService, invoiceService, notificationService, productService, profileService, recalculateProductStats, userAchievementService, activityService } from "@/lib/firestore";
+import { sendEmail } from "@/lib/email";
+import { licenseDeliveredTemplate, paymentRejectedTemplate } from "@/lib/email-templates";
 
 export default function AdminPaymentsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -79,6 +81,16 @@ export default function AdminPaymentsPage() {
         message: `Your payment for ${req.productName || req.productTitle} (${req.orderNumber}) has been approved. License: ${license?.key}`,
         type: "payment_approved",
       });
+
+      if (req.email) {
+        sendEmail(req.email, "Your License Key — Flipp Studios", licenseDeliveredTemplate({
+          customerName: req.username || "Customer",
+          productName: req.productName || req.productTitle || "Product",
+          licenseKey: license?.key || "",
+          orderNumber: req.orderNumber || "",
+        }));
+      }
+
       userAchievementService.checkAfterPurchase(req.userId);
       activityService.log(req.userId, { type: "purchase", description: `Payment approved for ${req.productName || req.productTitle} (${req.orderNumber})`, metadata: { orderId: req.orderId } });
       if (req.productId) recalculateProductStats(req.productId);
@@ -99,6 +111,15 @@ export default function AdminPaymentsPage() {
         message: `Your payment for ${req.productName || req.productTitle} (${req.orderNumber}) has been rejected.`,
         type: "payment_rejected",
       });
+
+      if (req.email) {
+        sendEmail(req.email, "Payment Rejected — Flipp Studios", paymentRejectedTemplate({
+          customerName: req.username || "Customer",
+          productName: req.productName || req.productTitle || "Product",
+          orderNumber: req.orderNumber || "",
+        }));
+      }
+
       if (req.productId) recalculateProductStats(req.productId);
     } catch (err) {
       console.error("Reject failed:", err);

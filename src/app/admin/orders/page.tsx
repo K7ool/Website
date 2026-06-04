@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { orderBy } from "firebase/firestore";
 import GlassCard from "@/components/GlassCard";
 import { orderService, recalculateProductStats, userAchievementService, activityService } from "@/lib/firestore";
+import { sendEmail } from "@/lib/email";
+import { orderCompletedTemplate, orderRefundedTemplate, orderCancelledTemplate } from "@/lib/email-templates";
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -21,6 +23,20 @@ export default function AdminOrdersPage() {
   const updateStatus = async (id: string, status: string) => {
     const order = orders.find((o) => o.id === id);
     await orderService.updateStatus(id, status);
+
+    if (order?.email) {
+      const productName = order.items?.[0]?.title || order.productName || "Product";
+      const customerName = order.customerName || "Customer";
+
+      if (status === "completed") {
+        sendEmail(order.email, "Order Completed — Flipp Studios", orderCompletedTemplate({ customerName, productName, orderNumber: order.orderNumber || "" }));
+      } else if (status === "refunded") {
+        sendEmail(order.email, "Order Refunded — Flipp Studios", orderRefundedTemplate({ customerName, productName, orderNumber: order.orderNumber || "" }));
+      } else if (status === "cancelled") {
+        sendEmail(order.email, "Order Cancelled — Flipp Studios", orderCancelledTemplate({ customerName, productName, orderNumber: order.orderNumber || "" }));
+      }
+    }
+
     if (order && (status === "completed") && order.userId) {
       userAchievementService.checkAfterPurchase(order.userId);
       activityService.log(order.userId, { type: "purchase", description: `Order ${order.orderNumber} completed`, metadata: { orderId: id } });
