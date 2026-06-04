@@ -19,6 +19,9 @@ export default function AdminLicensesPage() {
   const [extending, setExtending] = useState<any | null>(null);
   const [extendMonths, setExtendMonths] = useState(6);
   const [extendLoading, setExtendLoading] = useState(false);
+  const [editingKey, setEditingKey] = useState<any | null>(null);
+  const [editKeyValue, setEditKeyValue] = useState("");
+  const [editKeyLoading, setEditKeyLoading] = useState(false);
   const [newKey, setNewKey] = useState("");
 
   useEffect(() => {
@@ -100,6 +103,20 @@ export default function AdminLicensesPage() {
     if (!confirm("Regenerate license key? The old key will stop working.")) return;
     const newKey = await licenseService.regenerate(id);
     alert(`New key: ${newKey}`);
+  };
+
+  const handleEditKey = async () => {
+    if (!editingKey || !editKeyValue.trim()) return;
+    setEditKeyLoading(true);
+    try {
+      await licenseService.update(editingKey.id, { key: editKeyValue.trim() });
+      setEditingKey(null);
+      setEditKeyValue("");
+    } catch (e: any) {
+      alert(e?.message || "Failed to update key");
+    } finally {
+      setEditKeyLoading(false);
+    }
   };
 
   if (loading) {
@@ -214,6 +231,8 @@ export default function AdminLicensesPage() {
                           )}
                           <button onClick={() => handleRegenerate(lic.id)}
                             className="px-2 py-1 rounded bg-purple-500/10 text-purple-400 text-xs hover:bg-purple-500/20 transition-all">Regen</button>
+                          <button onClick={() => { setEditingKey(lic); setEditKeyValue(lic.key || ""); }}
+                            className="px-2 py-1 rounded bg-gray-500/10 text-gray-300 text-xs hover:bg-gray-500/20 transition-all">Edit Key</button>
                           <button onClick={() => handleDelete(lic.id)}
                             className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all">Delete</button>
                         </div>
@@ -396,6 +415,41 @@ export default function AdminLicensesPage() {
                 <button onClick={handleExtend} disabled={extendLoading}
                   className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-500 disabled:opacity-50 transition-all">
                   {extendLoading ? "Extending..." : "Extend"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Key Modal */}
+      <AnimatePresence>
+        {editingKey && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setEditingKey(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="glass rounded-2xl p-6 w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-white mb-2">Edit License Key</h3>
+              <p className="text-sm text-gray-400 mb-4">
+                Changing key for <code className="text-purple-300">{editingKey.id}</code>
+              </p>
+              <label className="block text-sm text-gray-300 mb-1">New Key</label>
+              <input
+                type="text" value={editKeyValue} onChange={(e) => setEditKeyValue(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg bg-dark-600 border border-purple-500/20 text-white text-sm mb-6 focus:outline-none focus:border-purple-500"
+                placeholder="Enter new license key"
+              />
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setEditingKey(null)} className="px-4 py-2 rounded-lg bg-dark-600 text-gray-300 text-sm hover:bg-dark-500 transition-all">Cancel</button>
+                <button onClick={handleEditKey} disabled={editKeyLoading || !editKeyValue.trim()}
+                  className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-500 disabled:opacity-50 transition-all">
+                  {editKeyLoading ? "Saving..." : "Save"}
                 </button>
               </div>
             </motion.div>
