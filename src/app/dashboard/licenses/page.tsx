@@ -22,6 +22,7 @@ export default function DashboardLicensesPage() {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [transferringId, setTransferringId] = useState<string | null>(null);
   const [confirmTransferId, setConfirmTransferId] = useState<string | null>(null);
+  const [transferCooldown, setTransferCooldown] = useState<{ licenseId: string; remainingDays: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -83,14 +84,18 @@ export default function DashboardLicensesPage() {
     setTransferringId(licenseId);
     try {
       const token = await user.getIdToken();
-      await fetch("/api/license/reset-transfer", {
+      const res = await fetch("/api/license/reset-transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ licenseId }),
       });
+      const data = await res.json();
+      if (!data.success && data.reason === "TRANSFER_COOLDOWN") {
+        setTransferCooldown({ licenseId, remainingDays: data.remainingDays });
+        setConfirmTransferId(null);
+      }
     } catch (e) { console.error(e); }
     setTransferringId(null);
-    setConfirmTransferId(null);
   };
 
   if (loading) {
@@ -179,7 +184,11 @@ export default function DashboardLicensesPage() {
                         Activity
                       </Link>
                       {lic.universeId && lic.status === "active" && (
-                        confirmTransferId === lic.id ? (
+                        transferCooldown?.licenseId === lic.id ? (
+                          <span className="px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-400 text-xs flex items-center">
+                            Cooldown: {transferCooldown!.remainingDays}d
+                          </span>
+                        ) : confirmTransferId === lic.id ? (
                           <div className="flex items-center gap-1">
                             <button onClick={() => handleTransfer(lic.id)} disabled={transferringId === lic.id}
                               className="px-2 py-1.5 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all disabled:opacity-50">
@@ -189,7 +198,10 @@ export default function DashboardLicensesPage() {
                               className="px-2 py-1.5 rounded bg-dark-600 text-gray-400 text-xs hover:text-white transition-all">X</button>
                           </div>
                         ) : (
-                          <button onClick={() => setConfirmTransferId(lic.id)}
+                          <button onClick={() => {
+                            setTransferCooldown(null);
+                            setConfirmTransferId(lic.id);
+                          }}
                             className="px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 text-xs hover:bg-orange-500/20 transition-all">Transfer</button>
                         )
                       )}

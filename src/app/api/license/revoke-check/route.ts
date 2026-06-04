@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { cacheWrap } from "@/lib/api-cache";
+import { sendLicenseWebhook, revokeEmbed } from "@/lib/discord-webhook";
 
 const RATE_LIMIT_WINDOW = 60_000;
 const RATE_LIMIT_MAX = 30;
@@ -66,6 +67,12 @@ export async function POST(req: NextRequest) {
       const lic = licSnap.docs[0].data();
 
       if (lic.status === "revoked") {
+        sendLicenseWebhook(revokeEmbed({
+          key: lic.key || "",
+          productName: lic.productName || "Unknown",
+          userId: lic.userId || "",
+          universeId: lic.universeId || undefined,
+        }));
         return { success: true, revoked: true, active: false, reason: "LICENSE_REVOKED" };
       }
 

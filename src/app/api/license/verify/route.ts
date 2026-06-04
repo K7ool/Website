@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { sendLicenseWebhook, activationEmbed } from "@/lib/discord-webhook";
 
 const RATE_LIMIT_WINDOW = 60_000;
 const RATE_LIMIT_MAX = 10;
@@ -130,6 +131,14 @@ export async function POST(req: NextRequest) {
       await adminDb.collection("licenses").doc(licId).update(updateData);
 
       console.log(`[LICENSE_VERIFY] First activation — bound ${bindField.label} ${bindField.value} to license ${licId}`);
+
+      sendLicenseWebhook(activationEmbed({
+        key: licenseKey.trim(),
+        productName: lic.productName || "Unknown",
+        userId: lic.userId || "",
+        universeId: universeId,
+        robloxUserId: robloxUserId,
+      }));
     } else {
       if (Number(lic[bindField.name]) !== Number(bindField.value)) {
         console.warn(`[LICENSE_VERIFY] ${bindField.label} mismatch: bound=${lic[bindField.name]}, request=${bindField.value} for license ${licId}`);
@@ -189,6 +198,7 @@ export async function POST(req: NextRequest) {
       activationCount: refreshed?.activationCount || 1,
       boundUniverseId: refreshed?.universeId || universeId,
       features: lic.features || null,
+      maxConcurrentServers: lic.maxConcurrentServers || 0,
     });
 
   } catch (err: any) {

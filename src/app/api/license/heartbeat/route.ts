@@ -26,6 +26,26 @@ export async function POST(req: NextRequest) {
       .get();
 
     if (snap.empty) {
+      const licSnap = await adminDb.collection("licenses").doc(licenseId).get();
+      if (licSnap.exists) {
+        const lic = licSnap.data();
+        const maxConcurrent = lic?.maxConcurrentServers || 0;
+        if (maxConcurrent > 0) {
+          const activeSnap = await adminDb.collection("activeSessions")
+            .where("licenseId", "==", licenseId)
+            .get();
+          const staleCutoff = new Date(Date.now() - 120_000).toISOString();
+          const activeCount = activeSnap.docs.filter((d) => {
+            const hb = d.data().lastHeartbeat;
+            return hb && hb >= staleCutoff;
+          }).length;
+          if (activeCount >= maxConcurrent) {
+            console.warn(`[LICENSE_HEARTBEAT] License ${licenseId} at max concurrent servers (${maxConcurrent})`);
+            return NextResponse.json({ success: false, reason: "MAX_CONCURRENT_SERVERS", maxConcurrentServers: maxConcurrent }, { status: 429 });
+          }
+        }
+      }
+
       const ref = await adminDb.collection("activeSessions").add({
         licenseId,
         licenseKey: licenseKey || null,

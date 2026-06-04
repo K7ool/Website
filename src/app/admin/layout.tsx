@@ -79,6 +79,7 @@ const navGroups: NavGroup[] = [
     title: "License System",
     icon: "shield",
     items: [
+      { href: "/admin/license-analytics", label: "Analytics" },
       { href: "/admin/license-activity", label: "Activity Log" },
       { href: "/admin/license-blacklist", label: "Blacklist" },
       { href: "/admin/license-servers", label: "Server Browser" },

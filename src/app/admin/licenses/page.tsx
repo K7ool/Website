@@ -13,7 +13,7 @@ export default function AdminLicensesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "expiring_soon" | "expired" | "revoked">("all");
   const [generating, setGenerating] = useState<any | null>(null);
-  const [genForm, setGenForm] = useState<{ userId: string; productId: string; productName: string; durationMonths: number; maxDownloads: number; universeId: string; creatorId: string; bindingType: "universe" | "creator" | "user" | "any"; features: Record<string, any> }>({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", bindingType: "any", features: {} });
+  const [genForm, setGenForm] = useState<{ userId: string; productId: string; productName: string; durationMonths: number; maxDownloads: number; maxConcurrentServers: number; universeId: string; creatorId: string; bindingType: "universe" | "creator" | "user" | "any"; features: Record<string, any> }>({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, maxConcurrentServers: 0, universeId: "", creatorId: "", bindingType: "any", features: {} });
   const [featuresJson, setFeaturesJson] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [extending, setExtending] = useState<any | null>(null);
@@ -61,7 +61,7 @@ export default function AdminLicensesPage() {
       });
       const lic = await licenseService.getById(id);
       setNewKey(lic?.key || "");
-      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, universeId: "", creatorId: "", bindingType: "any", features: {} });
+      setGenForm({ userId: "", productId: "", productName: "", durationMonths: 12, maxDownloads: 0, maxConcurrentServers: 0, universeId: "", creatorId: "", bindingType: "any", features: {} });
       setFeaturesJson("");
     } catch (err) {
       console.error("Generate failed:", err);
@@ -161,6 +161,7 @@ export default function AdminLicensesPage() {
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Universe</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Creator</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Activations</th>
+                  <th className="text-left py-3 px-3 text-gray-400 font-medium">Max Servers</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Last Verification</th>
                   <th className="text-left py-3 px-3 text-gray-400 font-medium">Actions</th>
                 </tr>
@@ -191,6 +192,13 @@ export default function AdminLicensesPage() {
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono">{lic.universeId || "—"}</td>
                       <td className="py-3 px-3 text-gray-400 text-xs font-mono">{lic.creatorId || "—"}</td>
                       <td className="py-3 px-3 text-gray-400 text-xs">{lic.activationCount || 0}</td>
+                      <td className="py-3 px-3 text-gray-400 text-xs">
+                        {lic.maxConcurrentServers ? (
+                          <span className="text-purple-400">{lic.maxConcurrentServers}</span>
+                        ) : (
+                          <span className="text-gray-500">∞</span>
+                        )}
+                      </td>
                       <td className="py-3 px-3 text-gray-400 text-xs">{lic.lastVerification ? new Date(lic.lastVerification).toLocaleString() : "—"}</td>
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1">
@@ -298,6 +306,12 @@ export default function AdminLicensesPage() {
                     <label className="block text-sm text-gray-400 mb-1.5">Max Downloads (0 = unlimited)</label>
                     <input type="number" min="0" value={genForm.maxDownloads} onChange={(e) => setGenForm({ ...genForm, maxDownloads: parseInt(e.target.value) || 0 })}
                       className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1.5">Max Concurrent Servers (0 = unlimited)</label>
+                    <input type="number" min="0" value={genForm.maxConcurrentServers} onChange={(e) => setGenForm({ ...genForm, maxConcurrentServers: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                    <p className="text-xs text-gray-500 mt-1">Limit simultaneous server sessions. 0 = no limit.</p>
                   </div>
 
                   <div>

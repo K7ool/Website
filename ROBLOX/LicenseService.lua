@@ -12,7 +12,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local TextChatService = game:GetService("TextChatService")
 
 local LicenseConfig = {
-	PRODUCT_ID = "PRODUCT_ID_PLACEHOLDER",
+	PRODUCT_ID = "cNGSuYiXq9rRnQRmUXDX",
 }
 
 local LicenseSecurity = {}
@@ -92,7 +92,7 @@ local state = {
 	-- OPTIMIZATION: recent verification timestamps per player
 	lastVerifyTime = {},        -- player -> os.time
 }
-local BOOTSTRAP_BASE = "API_BOOTSTRAP_URL"
+local BOOTSTRAP_BASE = "https://robloxdevmarket.vercel.app/api/license/bootstrap"
 local LICENSE_STORE_NAME = "RoMarketDev_LicenseData"
 local BOOTSTRAP_TTL = 86400   -- 24 hours
 local RECENT_VERIFY_TTL = 21600 -- 6 hours
@@ -118,6 +118,7 @@ function LicenseRuntime.Bootstrap(productId)
 	state.loaded = false
 	state.bootstrapFailed = false
 	print("[BOOTSTRAP] Fetching for productId:", productId)
+	LicenseController:_FireAllPlayers("StatusUpdate", { text = "Fetching configuration...", status = "loading" })
 	local url = BOOTSTRAP_BASE .. "?productId=" .. productId
 	local timedOut = false
 	local coro = coroutine.running()
@@ -150,15 +151,15 @@ function LicenseRuntime.Bootstrap(productId)
 	-- Update state
 	state.loaded = true
 	state.productId = decoded.productId or productId
-	state.verifyUrl = decoded.verifyUrl
-	state.sessionUrl = decoded.sessionUrl
-	state.statusUrl = decoded.statusUrl
-	state.restoreUrl = decoded.restoreUrl
-	state.revokeCheckUrl = decoded.revokeCheckUrl
-	state.activityUrl = decoded.activityUrl
-	state.heartbeatUrl = decoded.heartbeatUrl
-	state.blacklistUrl = decoded.blacklistUrl
-	state.resetTransferUrl = decoded.resetTransferUrl
+	state.verifyUrl = decoded.verifyUrl or (BOOTSTRAP_BASE:gsub("/bootstrap$", "/verify"))
+	state.sessionUrl = decoded.sessionUrl or (state.verifyUrl:gsub("/verify$", "/session"))
+	state.statusUrl = decoded.statusUrl or (state.verifyUrl:gsub("/verify$", "/status"))
+	state.restoreUrl = decoded.restoreUrl or (state.verifyUrl:gsub("/verify$", "/session"))
+	state.revokeCheckUrl = decoded.revokeCheckUrl or (state.verifyUrl:gsub("/verify$", "/revoke-check"))
+	state.activityUrl = decoded.activityUrl or (state.verifyUrl:gsub("/verify$", "/activity"))
+	state.heartbeatUrl = decoded.heartbeatUrl or (state.verifyUrl:gsub("/verify$", "/heartbeat"))
+	state.blacklistUrl = decoded.blacklistUrl or (state.verifyUrl:gsub("/verify$", "/blacklist"))
+	state.resetTransferUrl = decoded.resetTransferUrl or (state.verifyUrl:gsub("/verify$", "/reset-transfer"))
 	state.features = decoded.features or nil
 	state.productName = decoded.productName or "Unknown Product"
 	state.latestVersion = decoded.latestVersion or "1.0.0"
@@ -182,6 +183,7 @@ function LicenseRuntime.Bootstrap(productId)
 	}
 	state.bootstrapCacheTime = os.time()
 	print("[BOOTSTRAP] Success! Cached for 24h")
+	LicenseController:_FireAllPlayers("StatusUpdate", { text = "Configuration loaded", status = "success" })
 	return true
 end
 -- ─── Request deduplication ───
@@ -488,6 +490,7 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 		return
 	end
 	print("[LICENSE_CONTROLLER] Activation request from", player.Name)
+	self:_FireUI(player, "StatusUpdate", { text = "Verifying license key...", status = "loading" })
 	self:_FireUI(player, "Verifying", nil)
 	self:_FireTimeline(player, "verifying", "active")
 	self:_FireLog(player, "VERIFY", "Verifying license key...")
@@ -579,6 +582,7 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 	local statusCode = httpResponse.StatusCode
 	if statusCode >= 200 and statusCode < 300 and decoded.valid == true then
 		print("[LICENSE_CONTROLLER] Activation SUCCESS for", player.Name)
+		self:_FireUI(player, "StatusUpdate", { text = "License activated!", status = "success" })
 		self:_FireTimeline(player, "verifying", "complete")
 		self:_FireLog(player, "VERIFY", "License accepted")
 		-- Log activity
@@ -641,6 +645,7 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 		})
 		self:_StartProtectedSystem()
 	elseif decoded.reason == "UNIVERSE_MISMATCH" or decoded.reason == "CREATOR_MISMATCH" or decoded.reason == "USER_MISMATCH" or (decoded.message and decoded.message:find("already bound")) then
+		self:_FireUI(player, "StatusUpdate", { text = "Already bound", status = "error" })
 		self:_FireTimeline(player, "universe_binding", "error")
 		self:_FireLog(player, "BOUND", "License is already bound to another " .. (decoded.reason == "CREATOR_MISMATCH" and "creator" or decoded.reason == "USER_MISMATCH" and "user" or "experience"))
 		self:_FireUI(player, "Bound", {
@@ -650,9 +655,10 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 		})
 	else
 		local reason = decoded.reason or "UNKNOWN"
+		self:_FireUI(player, "StatusUpdate", { text = LicenseController:GetErrorMessage(reason), status = "error" })
 		self:_FireTimeline(player, "verifying", "error")
 		self:_FireLog(player, "ERROR", ErrorMessages[reason] or ErrorMessages.UNKNOWN)
-		self:_FireUI(player, "Error", { reason = reason, message = self:GetErrorMessage(reason) })
+		self:_FireUI(player, "Error", { reason = reason, message = LicenseController:GetErrorMessage(reason) })
 	end
 end
 -- ─── Silent session restore (deduped, rate-limited) ───
@@ -688,6 +694,7 @@ function LicenseController:_SilentReVerify(player)
 		LicenseRuntime.MarkRequestComplete(dedupKey)
 		return false
 	end
+	self:_FireUI(player, "StatusUpdate", { text = "Restoring session...", status = "loading" })
 	print("[SESSION_RESTORE] Silent re-verify", player.Name)
 	local timedOut = false
 	local coro = coroutine.running()
@@ -726,6 +733,7 @@ function LicenseController:_SilentReVerify(player)
 	end
 	if decoded.verified == true then
 		print("[SESSION_RESTORE] Verified for", player.Name)
+		self:_FireUI(player, "StatusUpdate", { text = "Session restored", status = "success" })
 		self:_FireTimeline(player, "session_restore", "complete")
 		self:_FireTimeline(player, "universe_binding", "complete")
 		self:_FireTimeline(player, "revocation", "complete")
@@ -748,6 +756,7 @@ function LicenseController:_SilentReVerify(player)
 		return true
 	elseif decoded.revoked == true or decoded.reason == "LICENSE_REVOKED" then
 		warn("[SESSION_RESTORE] License REVOKED for", player.Name)
+		self:_FireUI(player, "StatusUpdate", { text = "License revoked", status = "error" })
 		self:_FireTimeline(player, "revocation", "error")
 		self:_FireLog(player, "REVOKED", "License has been revoked")
 		LicenseRuntime.ClearActivation()
@@ -930,6 +939,7 @@ function LicenseController:Start(callback)
 		print("[LICENSE_CONTROLLER] Existing activation found")
 	end
 	LicenseRuntime.ShowVerificationUI = function(player)
+		self:_FireUI(player, "StatusUpdate", { text = "Enter your license key", status = "info" })
 		self:_FireUI(player, "ShowUI", {})
 	end
 	LicenseRuntime._controllerRef = self
@@ -942,6 +952,7 @@ function LicenseController:Start(callback)
 				print("[LICENSE_CONTROLLER] RequestUI blocked —", player.Name, "already verified")
 				return
 			end
+			-- OPTIMIZATION: skip silent re-verify if recently verified
 			if LicenseRuntime.IsRecentlyVerified(player) then
 				print("[LICENSE_CONTROLLER] RequestUI — recently verified, restoring cached state")
 				LicenseRuntime.SetVerified(player)
@@ -977,12 +988,17 @@ function LicenseController:Start(callback)
 			company = LicenseRuntime.GetCompany(),
 		})
 		if LicenseRuntime.IsActivated() then
+			-- OPTIMIZATION: Set verified immediately from local DataStore.
+			-- NO session restore API call on join.
+			print("[LICENSE_CONTROLLER] Activation exists — verifying locally for", player.Name)
 			LicenseRuntime.SetVerified(player)
 			LicenseRuntime.SetLastVerifyTime(player)
 			player:SetAttribute("LicenseVerified", true)
 			LicenseRuntime.SetProductVerified(player)
 			self:_StartProtectedSystem()
 		else
+			-- OPTIMIZATION: try one silent restore, but only once per join
+			print("[LICENSE_CONTROLLER] No local activation — checking session for", player.Name)
 			task.spawn(function()
 				local restored = self:_SilentReVerify(player)
 				if restored then
@@ -1029,6 +1045,8 @@ function LicenseController:Start(callback)
 		LicenseRuntime.ClearVerification(player)
 		player:SetAttribute("LicenseVerified", nil)
 	end)
+	-- OPTIMIZATION: Single loop — randomized revoke check only (3-6h)
+	-- No separate 24h sync loop (removed — revoke check covers both)
 	task.spawn(function()
 		if LicenseRuntime.IsActivated() then
 			self:_RevokeCheckLoop()
@@ -1039,6 +1057,7 @@ function LicenseController:Start(callback)
 			self:_RevokeCheckLoop()
 		end
 	end)
+	-- Heartbeat loop (starts immediately, only heartbeats when activated)
 	task.spawn(function()
 		self:_HeartbeatLoop()
 	end)
@@ -1081,5 +1100,9 @@ end
 function LicenseService.GetConfig()
 	return LicenseRuntime.GetConfig()
 end
+
+task.defer(function()
+	LicenseService.Start()
+end)
 
 return LicenseService

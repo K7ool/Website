@@ -25,6 +25,7 @@ export default function LicenseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [transferring, setTransferring] = useState(false);
   const [confirmTransfer, setConfirmTransfer] = useState(false);
+  const [transferCooldown, setTransferCooldown] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user || !params.id) return;
@@ -58,6 +59,8 @@ export default function LicenseDetailPage() {
         const actsRes = await fetch(`/api/license/activity?licenseId=${params.id}`);
         const actsData = await actsRes.json();
         if (actsData.success) setActivities(actsData.entries);
+      } else if (data.reason === "TRANSFER_COOLDOWN") {
+        setTransferCooldown(data.remainingDays);
       }
     } catch (e) { console.error(e); }
     setTransferring(false);
@@ -97,7 +100,11 @@ export default function LicenseDetailPage() {
               }`}>{license.status}</span>
               {license.universeId && license.status === "active" && (
                 <>
-                  {confirmTransfer ? (
+                  {transferCooldown ? (
+                    <span className="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 text-xs">
+                      Cooldown: {transferCooldown}d remaining
+                    </span>
+                  ) : confirmTransfer ? (
                     <div className="flex items-center gap-1">
                       <button onClick={handleTransfer} disabled={transferring}
                         className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all disabled:opacity-50">
@@ -107,7 +114,7 @@ export default function LicenseDetailPage() {
                         className="px-2 py-1 rounded bg-dark-600 text-gray-400 text-xs hover:text-white transition-all">Cancel</button>
                     </div>
                   ) : (
-                    <button onClick={() => setConfirmTransfer(true)}
+                    <button onClick={() => { setTransferCooldown(null); setConfirmTransfer(true); }}
                       className="px-2 py-1 rounded bg-orange-500/10 text-orange-400 text-xs hover:bg-orange-500/20 transition-all">Transfer License</button>
                   )}
                 </>
