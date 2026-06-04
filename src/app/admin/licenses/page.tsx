@@ -20,7 +20,7 @@ export default function AdminLicensesPage() {
   const [extendMonths, setExtendMonths] = useState(6);
   const [extendLoading, setExtendLoading] = useState(false);
   const [editingKey, setEditingKey] = useState<any | null>(null);
-  const [editKeyValue, setEditKeyValue] = useState("");
+  const [editForm, setEditForm] = useState<any>({});
   const [editKeyLoading, setEditKeyLoading] = useState(false);
   const [newKey, setNewKey] = useState("");
 
@@ -106,14 +106,24 @@ export default function AdminLicensesPage() {
   };
 
   const handleEditKey = async () => {
-    if (!editingKey || !editKeyValue.trim()) return;
+    if (!editingKey) return;
     setEditKeyLoading(true);
     try {
-      await licenseService.update(editingKey.id, { key: editKeyValue.trim() });
+      const data: Record<string, any> = {};
+      for (const key of Object.keys(editForm)) {
+        if (key === "features") {
+          data.features = editForm.features;
+        } else if (key === "expiresAt") {
+          data.expiresAt = editForm.expiresAt ? new Date(editForm.expiresAt).toISOString() : null;
+        } else {
+          data[key] = editForm[key];
+        }
+      }
+      await licenseService.update(editingKey.id, data);
       setEditingKey(null);
-      setEditKeyValue("");
+      setEditForm({});
     } catch (e: any) {
-      alert(e?.message || "Failed to update key");
+      alert(e?.message || "Failed to update license");
     } finally {
       setEditKeyLoading(false);
     }
@@ -231,8 +241,24 @@ export default function AdminLicensesPage() {
                           )}
                           <button onClick={() => handleRegenerate(lic.id)}
                             className="px-2 py-1 rounded bg-purple-500/10 text-purple-400 text-xs hover:bg-purple-500/20 transition-all">Regen</button>
-                          <button onClick={() => { setEditingKey(lic); setEditKeyValue(lic.key || ""); }}
-                            className="px-2 py-1 rounded bg-gray-500/10 text-gray-300 text-xs hover:bg-gray-500/20 transition-all">Edit Key</button>
+                          <button onClick={() => {
+                              setEditingKey(lic);
+                              setEditForm({
+                                key: lic.key || "",
+                                userId: lic.userId || "",
+                                productId: lic.productId || "",
+                                productName: lic.productName || "",
+                                universeId: lic.universeId || "",
+                                creatorId: lic.creatorId || "",
+                                bindingType: lic.bindingType || "any",
+                                status: lic.status || "active",
+                                expiresAt: lic.expiresAt ? new Date(lic.expiresAt).toISOString().slice(0, 16) : "",
+                                maxDownloads: lic.maxDownloads ?? 0,
+                                maxConcurrentServers: lic.maxConcurrentServers ?? 0,
+                                features: lic.features || {},
+                              });
+                            }}
+                            className="px-2 py-1 rounded bg-gray-500/10 text-gray-300 text-xs hover:bg-gray-500/20 transition-all">Edit</button>
                           <button onClick={() => handleDelete(lic.id)}
                             className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-all">Delete</button>
                         </div>
@@ -422,12 +448,12 @@ export default function AdminLicensesPage() {
         )}
       </AnimatePresence>
 
-      {/* Edit Key Modal */}
+      {/* Edit License Modal */}
       <AnimatePresence>
         {editingKey && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 bg-black/60 backdrop-blur-sm overflow-y-auto"
             onClick={() => setEditingKey(null)}
           >
             <motion.div
@@ -435,21 +461,109 @@ export default function AdminLicensesPage() {
               className="glass rounded-2xl p-6 w-full max-w-md"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-white mb-2">Edit License Key</h3>
+              <h3 className="text-lg font-bold text-white mb-1">Edit License</h3>
               <p className="text-sm text-gray-400 mb-4">
-                Changing key for <code className="text-purple-300">{editingKey.id}</code>
+                Editing <code className="text-purple-300">{editingKey.id}</code>
               </p>
-              <label className="block text-sm text-gray-300 mb-1">New Key</label>
-              <input
-                type="text" value={editKeyValue} onChange={(e) => setEditKeyValue(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-dark-600 border border-purple-500/20 text-white text-sm mb-6 focus:outline-none focus:border-purple-500"
-                placeholder="Enter new license key"
-              />
-              <div className="flex justify-end gap-3">
+
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">License Key</label>
+                  <input type="text" value={editForm.key || ""} onChange={(e) => setEditForm({ ...editForm, key: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white font-mono focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">User ID</label>
+                  <input type="text" value={editForm.userId || ""} onChange={(e) => setEditForm({ ...editForm, userId: e.target.value })}
+                    placeholder="Firebase UID"
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Product ID</label>
+                  <input type="text" value={editForm.productId || ""} onChange={(e) => setEditForm({ ...editForm, productId: e.target.value })}
+                    placeholder="Product document ID"
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Product Name</label>
+                  <input type="text" value={editForm.productName || ""} onChange={(e) => setEditForm({ ...editForm, productName: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Universe ID</label>
+                  <input type="text" value={editForm.universeId || ""} onChange={(e) => setEditForm({ ...editForm, universeId: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Creator ID</label>
+                  <input type="text" value={editForm.creatorId || ""} onChange={(e) => setEditForm({ ...editForm, creatorId: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Binding Type</label>
+                  <select value={editForm.bindingType || "any"} onChange={(e) => setEditForm({ ...editForm, bindingType: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-gray-300 focus:outline-none focus:border-purple-500">
+                    <option value="any">Any (bind to game)</option>
+                    <option value="universe">Game (universeId)</option>
+                    <option value="creator">Creator (creatorId)</option>
+                    <option value="user">User (robloxUserId)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Status</label>
+                  <select value={editForm.status || "active"} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-gray-300 focus:outline-none focus:border-purple-500">
+                    <option value="active">Active</option>
+                    <option value="revoked">Revoked</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Expires At</label>
+                  <input type="datetime-local" value={editForm.expiresAt || ""} onChange={(e) => setEditForm({ ...editForm, expiresAt: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Max Downloads (0 = unlimited)</label>
+                  <input type="number" min="0" value={editForm.maxDownloads ?? 0} onChange={(e) => setEditForm({ ...editForm, maxDownloads: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Max Concurrent Servers (0 = unlimited)</label>
+                  <input type="number" min="0" value={editForm.maxConcurrentServers ?? 0} onChange={(e) => setEditForm({ ...editForm, maxConcurrentServers: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-purple-500/20 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Features</label>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    {[
+                      { key: "maxPlayers", label: "Max Players", type: "number" },
+                      { key: "allowBuilding", label: "Allow Building", type: "boolean" },
+                      { key: "adminPanel", label: "Admin Panel", type: "boolean" },
+                      { key: "customScripts", label: "Custom Scripts", type: "boolean" },
+                    ].map(({ key, label, type }) => (
+                      <label key={key} className="flex items-center gap-2 p-2 rounded-lg bg-dark-700 border border-purple-500/10 cursor-pointer hover:border-purple-500/30 transition-all">
+                        <span className="text-xs text-gray-300">{label}</span>
+                        {type === "boolean" ? (
+                          <input type="checkbox" checked={editForm.features?.[key] === true}
+                            onChange={(e) => setEditForm({ ...editForm, features: { ...editForm.features, [key]: e.target.checked } })}
+                            className="w-3.5 h-3.5 rounded bg-dark-600 border-purple-500 text-purple-600 focus:ring-purple-500" />
+                        ) : (
+                          <input type="number" value={editForm.features?.[key] || ""} placeholder="0"
+                            onChange={(e) => setEditForm({ ...editForm, features: { ...editForm.features, [key]: e.target.value ? parseInt(e.target.value) : 0 } })}
+                            className="w-14 px-1.5 py-0.5 rounded bg-dark-600 border border-purple-500/20 text-xs text-white text-center focus:outline-none focus:border-purple-500" />
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-purple-500/10">
                 <button onClick={() => setEditingKey(null)} className="px-4 py-2 rounded-lg bg-dark-600 text-gray-300 text-sm hover:bg-dark-500 transition-all">Cancel</button>
-                <button onClick={handleEditKey} disabled={editKeyLoading || !editKeyValue.trim()}
+                <button onClick={handleEditKey} disabled={editKeyLoading}
                   className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-500 disabled:opacity-50 transition-all">
-                  {editKeyLoading ? "Saving..." : "Save"}
+                  {editKeyLoading ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </motion.div>

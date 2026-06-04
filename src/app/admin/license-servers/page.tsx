@@ -36,7 +36,7 @@ export default function AdminLicenseServersPage() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Active Server Sessions</h1>
+          <h1 className="text-2xl font-bold text-white">Server Browser</h1>
           <p className="text-sm text-gray-400 mt-1">{sessions.length} server{sessions.length !== 1 ? "s" : ""} · {totalPlayers} total players</p>
         </div>
       </div>
@@ -48,11 +48,16 @@ export default function AdminLicenseServersPage() {
           {sessions.map((s, i) => (
             <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <GlassCard>
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  {s.gameThumbnail && (
+                    <img src={s.gameThumbnail} alt={s.gameName || ""}
+                      className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                      <code className="text-sm text-purple-300 font-mono">{s.licenseKey || "—"}</code>
+                      <span className="text-sm font-semibold text-white">{s.gameName || "Unknown Game"}</span>
+                      <code className="text-xs text-purple-300 font-mono">{s.licenseKey || "—"}</code>
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                       <span>Server: <code className="text-gray-400 font-mono">{s.serverId?.slice(0, 20)}...</code></span>
