@@ -1,10 +1,10 @@
+import "server-only";
 import { Resend } from "resend";
 
 const FROM = process.env.EMAIL_FROM || "Flipp Studios <onboarding@resend.dev>";
 
 let _resend: Resend | null = null;
 function getResend(): Resend | null {
-  if (typeof window !== "undefined") return null;
   if (!_resend) {
     if (!process.env.RESEND_API_KEY) return null;
     _resend = new Resend(process.env.RESEND_API_KEY);
@@ -15,7 +15,7 @@ function getResend(): Resend | null {
 export async function sendEmail(to: string, subject: string, html: string) {
   const resend = getResend();
   if (!resend) {
-    console.warn("[EMAIL] RESEND_API_KEY not set or client-side, skipping email to", to);
+    console.warn("[EMAIL] RESEND_API_KEY not set, skipping email to", to);
     return;
   }
   try {

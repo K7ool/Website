@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { orderBy } from "firebase/firestore";
 import GlassCard from "@/components/GlassCard";
 import { orderService, recalculateProductStats, userAchievementService, activityService } from "@/lib/firestore";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/lib/client-email";
 import { orderCompletedTemplate, orderRefundedTemplate, orderCancelledTemplate } from "@/lib/email-templates";
 
 export default function AdminOrdersPage() {
