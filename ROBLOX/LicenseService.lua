@@ -618,15 +618,24 @@ function LicenseController:_OnActivateRequest(player, licenseKey)
 		-- First heartbeat (after activationRecord created)
 		local heartbeatUrl = LicenseRuntime.GetHeartbeatUrl()
 		if heartbeatUrl then
+			local currentPlayers = {}
+			for _, p in ipairs(Players:GetPlayers()) do
+				table.insert(currentPlayers, {
+					userId = p.UserId,
+					name = p.Name,
+					displayName = p.DisplayName
+				})
+			end
 			local hbResult = self:_PostJson(heartbeatUrl, {
 				licenseId = activationRecord.LicenseId,
 				licenseKey = activationRecord.LicenseKey,
 				universeId = game.GameId,
 				placeId = game.PlaceId,
 				serverId = tostring(game.JobId),
-				playerCount = #Players:GetPlayers(),
-				maxPlayers = 50,
+				playerCount = #currentPlayers,
+				maxPlayers = Players.MaxPlayers,
 				gameName = game.Name,
+				players = currentPlayers,
 			}, 5)
 			if hbResult and hbResult.sessionId then
 				activationRecord.SessionId = hbResult.sessionId
@@ -877,15 +886,24 @@ function LicenseController:_HeartbeatLoop()
 		if not heartbeatUrl or not activation then continue end
 		if LicenseRuntime.IsRequestPending("heartbeat") then continue end
 		LicenseRuntime.MarkRequestPending("heartbeat")
+		local currentPlayers = {}
+		for _, p in ipairs(Players:GetPlayers()) do
+			table.insert(currentPlayers, {
+				userId = p.UserId,
+				name = p.Name,
+				displayName = p.DisplayName
+			})
+		end
 		local payload = {
 			licenseId = activation.LicenseId,
 			licenseKey = activation.LicenseKey,
 			universeId = game.GameId,
 			placeId = game.PlaceId,
 			serverId = tostring(game.JobId),
-			playerCount = #Players:GetPlayers(),
-			maxPlayers = 50,
+			playerCount = #currentPlayers,
+			maxPlayers = Players.MaxPlayers,
 			gameName = game.Name,
+			players = currentPlayers,
 		}
 		if activation.SessionId then
 			payload.sessionId = activation.SessionId
