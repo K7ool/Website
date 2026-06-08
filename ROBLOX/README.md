@@ -7,12 +7,14 @@ Auto-detected API endpoint: `/api/license/verify`
 
 ## File Overview
 
-| File | Type | Where to Place |
-|------|------|----------------|
-| `LicenseConfig.lua` | ModuleScript | `ReplicatedStorage` |
-| `LicenseVerifier.lua` | ModuleScript | `ServerScriptService` |
-| `LicenseController.lua` | ModuleScript | `ServerScriptService` |
-| `LicenseUI.lua` | ModuleScript | `ReplicatedStorage` |
+| File | Type | Where to Place | Purpose |
+|------|------|----------------|---------|
+| `LicenseConfig.lua` | ModuleScript | `ReplicatedStorage` | License configuration |
+| `LicenseVerifier.lua` | ModuleScript | `ServerScriptService` | License verification logic |
+| `LicenseController.lua` | ModuleScript | `ServerScriptService` | License system controller |
+| `LicenseUI.lua` | ModuleScript | `ReplicatedStorage` | License prompt UI |
+| `WebsiteConnector.lua` | ModuleScript | `ServerScriptService` | **[NEW]** Handles admin commands (kick, ban, DM) |
+| `ServerStart.lua` | Script | `ServerScriptService` | **[NEW]** Main startup script |
 
 ---
 
@@ -35,22 +37,36 @@ ReplicatedStorage
 ServerScriptService
 ├── LicenseVerifier.lua    (ModuleScript)
 ├── LicenseController.lua  (ModuleScript)
+├── WebsiteConnector.lua   (ModuleScript) — [NEW]
+└── ServerStart.lua        (Script)       — [NEW]
 ```
 
 ### 3. Create a Script to Start the System
 
-Create a **Script** (not LocalScript) in `ServerScriptService`:
+The `ServerStart.lua` file has already been created for you. This is your main server startup script that:
+1. Initializes the **WebsiteConnector** (handles admin commands: kick, ban, DM)
+2. Starts the **LicenseController** (verifies license)
+3. Starts your protected game systems
+
+Simply place `ServerStart.lua` as a **Script** (not LocalScript) in `ServerScriptService`. 
+It will automatically initialize both systems.
+
+**If you want to use a custom startup script instead**, create a **Script** in `ServerScriptService`:
 
 ```lua
+-- Require the license system
 local LicenseController = require(game:GetService("ServerScriptService").LicenseController)
 
-LicenseController.Start(function()
-	-- Your protected game system starts here.
-	-- This only runs after a valid license is verified.
-	print("[FlippStudios] License verified — system starting")
+-- Require the website connector (handles admin commands)
+local WebsiteConnector = require(game:GetService("ServerScriptService").WebsiteConnector)
 
-	-- Example: load your main game scripts
-	-- require(game:GetService("ServerScriptService").MainGameLoader)
+-- Start the website connector FIRST
+WebsiteConnector.Start()
+
+-- Then start the license verification
+LicenseController.Start(function()
+	-- Your protected game system starts here
+	print("[FlippStudios] License verified — system starting")
 end)
 ```
 
@@ -179,6 +195,107 @@ Set `Config.PRODUCT_ID` to the ID of the product you purchased.
 - **Re-verification**: Licenses are re-verified every hour. If re-verification fails at any point, the protected system is disabled.
 - **DataStore**: The license is saved locally so players don't need to re-enter their key every join, but re-verification still happens server-side.
 - **Rate limiting**: The API enforces 10 requests per minute per IP to prevent brute-force attacks.
+
+---
+
+## WebsiteConnector — Admin Commands
+
+The **WebsiteConnector** system connects your Roblox experience to the Flipp Studios admin panel, allowing you to:
+- **Kick players** from your game remotely
+- **Ban players** with persistent banlists stored in DataStore
+- **Send DMs** to players in-game
+- **Get player info** (name, ID, account age, ban status)
+
+### How It Works
+
+1. **Admin Panel** sends command to `/api/servers/commands` (your website)
+2. **Roblox Game** polls `/api/servers/commands/pending` every 5 seconds
+3. **WebsiteConnector** processes the command (kick/ban/dm/info)
+4. **Roblox Game** reports completion to `/api/servers/commands/complete`
+5. **Admin Panel** receives the result and updates the UI
+
+### Command Flow
+
+```
+Admin clicks "Kick" on website
+         │
+         ▼
+POST /api/servers/commands
+         │
+         ▼
+Stored in serverCommands collection
+         │
+         ▼
+Roblox polls /api/servers/commands/pending
+         │
+         ▼
+WebsiteConnector.processCommand()
+         │
+         ├── type = "kick" ──► Players:FindFirstChild(name):Kick(reason)
+         ├── type = "ban"  ──► Add to banlist + kick player
+         ├── type = "dm"   ──► Send system message via TextChat
+         └── type = "info" ──► Return player stats
+         │
+         ▼
+POST /api/servers/commands/complete
+         │
+         ▼
+Admin panel receives result
+```
+
+### Usage
+
+The WebsiteConnector automatically starts when you run `ServerStart.lua`. No configuration needed—it automatically discovers your game's server ID.
+
+**Check if a player is banned:**
+
+```lua
+local WebsiteConnector = require(game:GetService("ServerScriptService").WebsiteConnector)
+
+if WebsiteConnector.IsBanned(userId) then
+	print("Player is banned")
+end
+```
+
+**Get all banned users:**
+
+```lua
+local bannedUsers = WebsiteConnector.GetBannedUsers()
+for userId, _ in pairs(bannedUsers) do
+	print("Banned: " .. userId)
+end
+```
+
+### Firestore Collections
+
+Commands are stored in the `serverCommands` collection with this structure:
+
+```json
+{
+  "serverId": "123456789",
+  "type": "kick|ban|dm|info|chat",
+  "targetUserId": 123456,
+  "targetName": "DevAboSolo",
+  "payload": {
+    "reason": "Reason for kick/ban",
+    "message": "Message content for DM"
+  },
+  "status": "pending|sent|completed",
+  "createdAt": "2026-06-08T10:30:00Z",
+  "completedAt": "2026-06-08T10:30:05Z",
+  "result": { "success": true, "message": "Player kicked" }
+}
+```
+
+### Troubleshooting
+
+| Problem | Likely Cause | Solution |
+|---------|-------------|----------|
+| Commands not executing | WebsiteConnector not started | Place `ServerStart.lua` as Script in ServerScriptService |
+| "Unknown command type" | API sending invalid type | Update your website API or WebsiteConnector |
+| Players not actually kicked | Incorrect player name | Ensure target name matches exact player name in game |
+| Ban not persisting | DataStore disabled | Enable DataStore access in game settings |
+| DM not sending | TextChat unavailable | Ensure your game has TextChatService enabled |
 
 ---
 
