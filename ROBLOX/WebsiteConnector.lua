@@ -15,6 +15,9 @@ local WebsiteConnector = {}
 
 -- ─── Configuration ───
 local CONFIG = {
+	-- IMPORTANT: Change this to your actual deployment URL
+	-- For development: "http://localhost:3000"
+	-- For production: "https://your-domain.com"
 	BASE_URL = "https://robloxdevmarket.vercel.app",
 	POLL_INTERVAL = 5, -- seconds
 	BANLIST_STORE_NAME = "WebsiteConnector_Banlist",
@@ -231,6 +234,53 @@ local function markCommandComplete(commandId, result)
 	end)
 end
 
+-- ─── Heartbeat Loop ───
+
+local function sendHeartbeat()
+	if not state.running then return end
+	
+	local serverId = getServerId()
+	local url = CONFIG.BASE_URL .. "/api/servers/heartbeat"
+	
+	-- Build player list
+	local players = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		table.insert(players, {
+			userId = player.UserId,
+			name = player.Name,
+			displayName = player.DisplayName,
+		})
+	end
+	
+	-- Get game name safely
+	local gameName = "Roblox Game"
+	pcall(function()
+		gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId, Enum.InfoType.Asset).Name
+	end)
+	
+	local payload = {
+		serverId = serverId,
+		universeId = game.PlaceVersion,
+		placeId = game.PlaceId,
+		playerCount = #players,
+		maxPlayers = 50, -- TODO: get actual max from game
+		gameName = gameName,
+		players = players,
+	}
+	
+	pcall(function()
+		local body = HttpService:JSONEncode(payload)
+		local response = HttpService:PostAsync(url, body, Enum.HttpContentType.ApplicationJson)
+		local data = HttpService:JSONDecode(response)
+		
+		if data.success then
+			log("INFO", "✓ Heartbeat sent (" .. #players .. " players)")
+		else
+			log("WARN", "Heartbeat failed: " .. tostring(data.reason))
+		end
+	end)
+end
+
 -- ─── Main Polling Loop ───
 
 local function pollCommands()
@@ -304,13 +354,22 @@ function WebsiteConnector.Start()
 		onPlayerAdded(player)
 	end
 	
-	-- Start polling loop
+	-- Start polling loop for commands and heartbeats
 	local serverId = getServerId()
 	log("INFO", "Starting WebsiteConnector (Server ID: " .. serverId .. ")")
 	
 	task.spawn(function()
+		local heartbeatTick = 0
 		while state.running do
+			-- Send heartbeat every 5 seconds
+			if heartbeatTick % 1 == 0 then
+				sendHeartbeat()
+			end
+			
+			-- Poll commands every 5 seconds
 			pollCommands()
+			
+			heartbeatTick = heartbeatTick + 1
 			task.wait(CONFIG.POLL_INTERVAL)
 		end
 	end)
