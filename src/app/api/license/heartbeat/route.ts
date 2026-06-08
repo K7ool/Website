@@ -3,10 +3,10 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
-    let body: { licenseId?: string; licenseKey?: string; universeId?: number; placeId?: number; serverId?: string; playerCount?: number; maxPlayers?: number; sessionId?: string; gameName?: string };
+    let body: { licenseId?: string; licenseKey?: string; universeId?: number; placeId?: number; serverId?: string; playerCount?: number; maxPlayers?: number; sessionId?: string; gameName?: string; players?: { userId: number; name: string; displayName: string }[] };
     try { body = await req.json(); } catch { return NextResponse.json({ success: false, reason: "INVALID_BODY" }, { status: 400 }); }
 
-    const { licenseId, licenseKey, universeId, placeId, serverId, playerCount, maxPlayers, sessionId, gameName } = body;
+    const { licenseId, licenseKey, universeId, placeId, serverId, playerCount, maxPlayers, sessionId, gameName, players } = body;
 
     if (sessionId) {
       const updates: Record<string, any> = {
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
         maxPlayers: maxPlayers ?? 0,
         lastHeartbeat: new Date().toISOString(),
       };
+      if (players) updates.players = players;
       if (gameName) updates.gameName = gameName;
       await adminDb.collection("activeSessions").doc(sessionId).update(updates);
       return NextResponse.json({ success: true, sessionId });
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
         playerCount: playerCount ?? 0,
         maxPlayers: maxPlayers ?? 0,
         gameName: gameName || null,
+        players: players || [],
         startedAt: new Date().toISOString(),
         lastHeartbeat: new Date().toISOString(),
       });
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
       maxPlayers: maxPlayers ?? 0,
       lastHeartbeat: new Date().toISOString(),
     };
+    if (players) updates.players = players;
     if (gameName) updates.gameName = gameName;
     await doc.ref.update(updates);
     return NextResponse.json({ success: true, sessionId: doc.id, created: false });
