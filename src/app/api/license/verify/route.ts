@@ -1,29 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendLicenseWebhook, activationEmbed, expiredEmbed } from "@/lib/discord-webhook";
-
-const RATE_LIMIT_WINDOW = 60_000;
-const RATE_LIMIT_MAX = 10;
-const rateMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
-  entry.count++;
-  return true;
-}
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of rateMap) {
-    if (now > val.resetAt) rateMap.delete(key);
-  }
-}, 120_000);
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { cacheWrap } from "@/lib/api-cache";
 
 function success(data: Record<string, unknown>) {
   return NextResponse.json({ success: true, ...data });
@@ -37,11 +16,9 @@ export async function POST(req: NextRequest) {
   try {
     console.log("[LICENSE_VERIFY] Request received");
 
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-      || req.headers.get("x-real-ip")
-      || "127.0.0.1";
+    const ip = getClientIp(req);
 
-    if (!checkRateLimit(ip)) {
+    if (!checkRateLimit(ip, { max: 10, windowMs: 60_000, store: "verify" })) {
       console.warn(`[LICENSE_VERIFY] Rate limit exceeded for IP: ${ip}`);
       return fail("RATE_LIMIT_EXCEEDED", 429);
     }
@@ -171,20 +148,17 @@ export async function POST(req: NextRequest) {
       licenseType: lic.durationMonths && lic.durationMonths > 0 ? "subscription" : "lifetime",
     }));
 
-    console.log("[LICENSE_VERIFY] Querying database");
-
     let latestVersion = "1.0.0";
     try {
-      const versionsSnap = await adminDb.collection("products")
-        .doc(productId)
-        .collection("productVersions")
-        .orderBy("createdAt", "desc")
-        .limit(1)
-        .get();
-
-      if (!versionsSnap.empty) {
-        latestVersion = versionsSnap.docs[0].data().version || "1.0.0";
-      }
+      latestVersion = await cacheWrap(`version:${productId}`, 120_000, async () => {
+        const versionsSnap = await adminDb.collection("products")
+          .doc(productId)
+          .collection("productVersions")
+          .orderBy("createdAt", "desc")
+          .limit(1)
+          .get();
+        return !versionsSnap.empty ? (versionsSnap.docs[0].data().version || "1.0.0") : "1.0.0";
+      });
     } catch (err) {
       console.error(`[LICENSE_VERIFY] Failed to fetch product version for ${productId}:`, err);
     }

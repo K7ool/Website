@@ -2,31 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { cacheWrap } from "@/lib/api-cache";
 import { sendLicenseWebhook, expiredEmbed } from "@/lib/discord-webhook";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
-const RATE_LIMIT_WINDOW = 60_000;
-const RATE_LIMIT_MAX = 50;
 const STATUS_CACHE_TTL = 60_000; // 1 min
-
-const rateMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
-  entry.count++;
-  return true;
-}
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of rateMap) {
-    if (now > val.resetAt) rateMap.delete(key);
-  }
-}, 120_000);
 
 function success(data: Record<string, unknown>) {
   return NextResponse.json({ success: true, ...data });
@@ -38,11 +16,9 @@ function fail(reason: string, status = 403) {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-      || req.headers.get("x-real-ip")
-      || "127.0.0.1";
+    const ip = getClientIp(req);
 
-    if (!checkRateLimit(ip)) {
+    if (!checkRateLimit(ip, { max: 50, windowMs: 60_000, store: "status" })) {
       return fail("RATE_LIMIT_EXCEEDED", 429);
     }
 

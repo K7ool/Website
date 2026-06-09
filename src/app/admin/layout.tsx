@@ -297,7 +297,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-dark-900 pt-16 lg:pt-20">
       {/* Top bar */}
-      <div className="border-b border-purple-500/10 bg-dark-800/50 px-4 sm:px-6 lg:px-8">
+      <div className="relative z-[70] border-b border-purple-500/10 bg-dark-800/50 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all -ml-1.5">

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { checkLegalAcceptanceServer } from "@/lib/legal";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(ip, { max: 30, windowMs: 60_000, store: "check-ownership" })) {
+      return NextResponse.json({ error: "RATE_LIMIT_EXCEEDED" }, { status: 429 });
+    }
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.error("[CHECK_OWNERSHIP] No auth header");

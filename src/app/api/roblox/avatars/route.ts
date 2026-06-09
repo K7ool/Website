@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(ip, { max: 30, windowMs: 60_000, store: "roblox-avatars" })) {
+      return NextResponse.json({ success: false, error: "RATE_LIMIT_EXCEEDED" }, { status: 429 });
+    }
+
     const { userIds } = await req.json();
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {

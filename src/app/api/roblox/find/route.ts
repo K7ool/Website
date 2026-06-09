@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const ROBLOX_HEADERS = {
   "User-Agent": "FlippStudios/1.0",
@@ -45,6 +46,11 @@ async function resolveUser(query: string): Promise<{ id: number; name: string } 
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(ip, { max: 15, windowMs: 60_000, store: "roblox-find" })) {
+      return NextResponse.json({ success: false, error: "RATE_LIMIT_EXCEEDED" }, { status: 429 });
+    }
+
     const { query } = await req.json();
     if (!query?.trim()) {
       return NextResponse.json({ success: false, error: "Query is required" }, { status: 400 });
