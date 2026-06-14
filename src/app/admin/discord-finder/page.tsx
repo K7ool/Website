@@ -23,6 +23,20 @@ interface DiscordAge {
   total: number;
 }
 
+interface RobloxAccount {
+  linked: boolean;
+  robloxId?: number;
+  username?: string;
+  displayName?: string;
+  description?: string;
+  avatarUrl?: string;
+  created?: string | null;
+  accountAgeDays?: number;
+  accountAge?: DiscordAge;
+  profileUrl?: string;
+  isBanned?: boolean;
+}
+
 interface DiscordUserData {
   id: string;
   username: string;
@@ -41,6 +55,7 @@ interface DiscordUserData {
   accountAge: DiscordAge;
   profileUrl: string;
   snowflake: DiscordSnowflake | null;
+  robloxAccount: RobloxAccount | null;
 }
 
 function CopyBtn({ text, label }: { text: string; label?: string }) {
@@ -409,6 +424,98 @@ export default function DiscordFinderPage() {
                     <span className="font-mono text-gray-400 break-all">{data.id}</span>
                   </div>
                 </div>
+              </GlassCard>
+            )}
+
+            {/* Linked Roblox Account */}
+            {data.robloxAccount && (
+              <GlassCard>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-sm font-semibold text-white">Linked Roblox Account</h3>
+                  {data.robloxAccount.linked ? (
+                    <span className="px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 text-[10px] font-medium border border-green-500/20">Linked</span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 text-[10px] font-medium border border-gray-500/20">Not Linked</span>
+                  )}
+                </div>
+
+                {data.robloxAccount.linked && data.robloxAccount.robloxId ? (
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                    {/* Roblox Avatar */}
+                    <div className="shrink-0 relative group">
+                      <div className="w-24 h-24 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10">
+                        {data.robloxAccount.avatarUrl ? (
+                          <img src={data.robloxAccount.avatarUrl} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl text-gray-600 bg-dark-600">
+                            {data.robloxAccount.username?.[0]?.toUpperCase() || "?"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                        {data.robloxAccount.avatarUrl && <DownloadBtn url={data.robloxAccount.avatarUrl} filename={`roblox_avatar_${data.robloxAccount.robloxId}.png`} />}
+                      </div>
+                    </div>
+
+                    {/* Roblox Info */}
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-lg font-bold text-white">{data.robloxAccount.displayName || data.robloxAccount.username}</h4>
+                            {data.robloxAccount.isBanned && (
+                              <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-medium">Banned</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-400 flex items-center gap-1">
+                            <span className="text-blue-400">@{data.robloxAccount.username}</span>
+                            <span className="text-gray-600">·</span>
+                            <span className="font-mono text-xs">{data.robloxAccount.robloxId}</span>
+                            <CopyBtn text={String(data.robloxAccount.robloxId)} label="Copy Roblox ID" />
+                          </p>
+                        </div>
+                        <a
+                          href={data.robloxAccount.profileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs text-white font-medium transition-all"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          Profile
+                        </a>
+                      </div>
+
+                      {data.robloxAccount.description && (
+                        <p className="text-xs text-gray-500 mt-2 line-clamp-2 italic">"{data.robloxAccount.description}"</p>
+                      )}
+
+                      {/* Roblox Stats */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-purple-500/10">
+                        {[
+                          { label: "User ID", value: String(data.robloxAccount.robloxId), copy: String(data.robloxAccount.robloxId) },
+                          { label: "Account Age", value: data.robloxAccount.accountAge ? `${data.robloxAccount.accountAge.years}y ${data.robloxAccount.accountAge.months}m` : "—", copy: String(data.robloxAccount.accountAgeDays || 0) },
+                          { label: "Created", value: data.robloxAccount.created ? new Date(data.robloxAccount.created).toLocaleDateString() : "—", copy: data.robloxAccount.created || "" },
+                        ].map((s) => (
+                          <div key={s.label} className="text-center p-1.5 rounded-lg bg-dark-700/30">
+                            <div className="flex items-center justify-center gap-1">
+                              <p className="text-xs font-bold text-white font-mono truncate">{s.value}</p>
+                              <CopyBtn text={s.copy} />
+                            </div>
+                            <p className="text-[9px] text-gray-500 uppercase tracking-wider">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 py-4 text-gray-500">
+                    <svg className="w-8 h-8 shrink-0 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    <div>
+                      <p className="text-sm text-gray-400">No Roblox account linked</p>
+                      <p className="text-xs text-gray-600">This user hasn't verified with Bloxlink in your server</p>
+                    </div>
+                  </div>
+                )}
               </GlassCard>
             )}
           </motion.div>

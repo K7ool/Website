@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const DISCORD_LOOKUP_API = "https://discord.tsunstudio.pw/api";
+const BLOXLINK_API_KEY = process.env.BLOXLINK_API_KEY || "";
+const BLOXLINK_SERVER_ID = process.env.BLOXLINK_SERVER_ID || "";
 
 const BADGE_FLAGS: Record<number, { name: string; icon: string }> = {
   1: { name: "Discord Employee", icon: "🏷️" },
@@ -64,6 +66,71 @@ function formatAge(totalDays: number): { years: number; months: number; days: nu
   return { years, months, days, total: totalDays };
 }
 
+async function fetchRobloxProfile(robloxId: number) {
+  const ROBLOX_HEADERS = { "User-Agent": "FlippStudios/1.0", Accept: "application/json" };
+
+  async function fetchJson(url: string) {
+    try {
+      const res = await fetch(url, { headers: ROBLOX_HEADERS, signal: AbortSignal.timeout(5000) });
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  const [profile, thumbRes] = await Promise.all([
+    fetchJson(`https://users.roblox.com/v1/users/${robloxId}`),
+    fetchJson(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxId}&size=150x150&format=Png`),
+  ]);
+
+  if (!profile) return null;
+
+  const avatarUrl = thumbRes?.data?.[0]?.imageUrl || "";
+  const accountAgeDays = profile.created
+    ? Math.floor((Date.now() - new Date(profile.created).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  return {
+    linked: true,
+    robloxId,
+    username: profile.name || "",
+    displayName: profile.displayName || "",
+    description: profile.description || "",
+    avatarUrl,
+    created: profile.created || null,
+    accountAgeDays,
+    accountAge: formatAge(accountAgeDays),
+    profileUrl: `https://www.roblox.com/users/${robloxId}/profile`,
+    isBanned: profile.isBanned || false,
+  };
+}
+
+async function lookupBloxlink(discordId: string) {
+  if (!BLOXLINK_API_KEY || !BLOXLINK_SERVER_ID) return null;
+
+  try {
+    const res = await fetch(
+      `https://api.blox.link/v4/public/guilds/${BLOXLINK_SERVER_ID}/discord-to-roblox/${discordId}`,
+      {
+        headers: { Authorization: BLOXLINK_API_KEY },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+
+    if (res.status === 404) return { linked: false };
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (data.robloxID) {
+      return { linked: true, robloxId: Number(data.robloxID) };
+    }
+    return { linked: false };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req);
@@ -103,6 +170,15 @@ export async function POST(req: NextRequest) {
     const snowflake = decodeSnowflake(cleanId);
     const age = formatAge(accountAgeDays);
 
+    const bloxlinkResult = await lookupBloxlink(cleanId);
+
+    let robloxAccount = null;
+    if (bloxlinkResult?.linked && bloxlinkResult.robloxId) {
+      robloxAccount = await fetchRobloxProfile(bloxlinkResult.robloxId);
+    } else if (bloxlinkResult?.linked === false) {
+      robloxAccount = { linked: false };
+    }
+
     const formatted = {
       id: cleanId,
       username: data.username || "",
@@ -121,6 +197,7 @@ export async function POST(req: NextRequest) {
       accountAge: age,
       profileUrl: data.profileUrl || `https://discord.com/users/${cleanId}`,
       snowflake,
+      robloxAccount,
     };
 
     return NextResponse.json({ success: true, data: formatted });
