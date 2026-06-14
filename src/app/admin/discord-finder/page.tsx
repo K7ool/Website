@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
+import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 
 interface DiscordBadge {
   name: string;
@@ -116,9 +117,15 @@ export default function DiscordFinderPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copiedAll, setCopiedAll] = useState(false);
+  const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
 
-  const search = async () => {
-    if (!query.trim()) return;
+  useEffect(() => {
+    setHistory(getHistory("discord"));
+  }, []);
+
+  const search = async (searchQuery?: string) => {
+    const q = searchQuery || query.trim();
+    if (!q) return;
     setLoading(true);
     setError("");
     setData(null);
@@ -126,19 +133,29 @@ export default function DiscordFinderPage() {
       const res = await fetch("/api/discord/find", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: query.trim() }),
+        body: JSON.stringify({ id: q }),
       });
       const json = await res.json();
       if (!json.success) {
         setError(json.error || "Failed to find user");
       } else {
         setData(json.data);
+        setHistory(addToHistory("discord", q, json.data.globalName || json.data.username || q));
       }
     } catch {
       setError("Network error");
     } finally {
       setLoading(false);
     }
+  };
+
+  const removeHistory = (q: string) => {
+    setHistory(removeFromHistory("discord", q));
+  };
+
+  const clearAllHistory = () => {
+    clearHistory("discord");
+    setHistory([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -176,7 +193,7 @@ export default function DiscordFinderPage() {
             />
           </div>
           <button
-            onClick={search}
+            onClick={() => search()}
             disabled={loading || !query.trim()}
             className="px-5 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-sm font-medium transition-all"
           >
@@ -191,6 +208,32 @@ export default function DiscordFinderPage() {
           </button>
         </div>
       </GlassCard>
+
+      {/* Search History */}
+      {history.length > 0 && (
+        <GlassCard className="py-3 px-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-gray-500 uppercase tracking-wider">Recent Searches</span>
+            <button onClick={clearAllHistory} className="text-[10px] text-gray-600 hover:text-red-400 transition-colors">Clear all</button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {history.map((entry) => (
+              <div key={entry.query} className="group flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-700/50 border border-purple-500/5 hover:border-purple-500/20 transition-all">
+                <button
+                  onClick={() => { setQuery(entry.query); search(entry.query); }}
+                  className="text-xs text-gray-400 hover:text-white transition-colors truncate max-w-[180px]"
+                  title={entry.query}
+                >
+                  {entry.label || entry.query}
+                </button>
+                <button onClick={() => removeHistory(entry.query)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
 
       {error && (
         <GlassCard className="border-red-500/20">
