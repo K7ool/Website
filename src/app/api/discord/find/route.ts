@@ -1,33 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
-const DISCORD_LOOKUP_API = "https://discordlookup.mesalytic.moe/v1/user";
-
-const BADGE_FLAGS: Record<number, string> = {
-  1: "DISCORD_EMPLOYEE",
-  2: "DISCORD_PARTNER",
-  4: "HYPESQUAD_EVENTS",
-  8: "BUGHUNTER_LEVEL_1",
-  16: "HOUSE_BRAVERY",
-  32: "HOUSE_BRILLIANCE",
-  64: "HOUSE_BALANCE",
-  128: "EARLY_SUPPORTER",
-  256: "TEAM_USER",
-  512: "SYSTEM",
-  1024: "BUGHUNTER_LEVEL_2",
-  4096: "VERIFIED_BOT",
-  8192: "EARLY_VERIFIED_BOT_DEVELOPER",
-  131072: "CERTIFIED_MODERATOR",
-  262144: "ACTIVE_DEVELOPER",
-};
-
-function decodeFlags(flags: number): string[] {
-  const badges: string[] = [];
-  for (const [bit, name] of Object.entries(BADGE_FLAGS)) {
-    if (flags & Number(bit)) badges.push(name);
-  }
-  return badges;
-}
+const DISCORD_LOOKUP_API = "https://discord.tsunstudio.pw/api";
 
 function snowflakeToTimestamp(id: string): Date | null {
   try {
@@ -58,7 +32,6 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${DISCORD_LOOKUP_API}/${cleanId}`, {
       signal: AbortSignal.timeout(8000),
-      headers: { "User-Agent": "FlippStudios/1.0" },
     });
 
     if (res.status === 404) {
@@ -75,34 +48,18 @@ export async function POST(req: NextRequest) {
       ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
-    let avatarUrl = "";
-    if (data.avatar?.id) {
-      const ext = data.avatar.is_animated ? "gif" : "png";
-      avatarUrl = `https://cdn.discordapp.com/avatars/${cleanId}/${data.avatar.id}.${ext}?size=1024`;
-    }
-
-    let bannerUrl = "";
-    if (data.banner?.id) {
-      const ext = data.banner.is_animated ? "gif" : "png";
-      bannerUrl = `https://cdn.discordapp.com/banners/${cleanId}/${data.banner.id}.${ext}?size=1024`;
-    }
-
     const formatted = {
       id: cleanId,
-      username: data.tag?.split("#")[0] || "",
-      discriminator: data.tag?.split("#")[1] || "0",
-      globalName: data.global_name || data.username || "",
-      avatarUrl,
-      bannerUrl,
-      bannerColor: data.banner?.color || null,
+      username: data.username || "",
+      discriminator: data.discriminator || "0",
+      globalName: data.display_name || data.username || "",
+      avatarUrl: data.avatarUrl || "",
+      bannerUrl: data.bannerUrl || "",
+      bannerColor: data.banner_color || null,
       badges: data.badges || [],
       createdAt: createdAt?.toISOString() || null,
       accountAgeDays,
-      profileUrl: `https://discord.com/users/${cleanId}`,
-      cdnAvatar: `https://cdn.discordapp.com/avatars/${cleanId}/${data.avatar?.id || "0"}.png`,
-      cdnBanner: data.banner?.id
-        ? `https://cdn.discordapp.com/banners/${cleanId}/${data.banner.id}.png`
-        : null,
+      profileUrl: data.profileUrl || `https://discord.com/users/${cleanId}`,
     };
 
     return NextResponse.json({ success: true, data: formatted });
