@@ -47,6 +47,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/notifications", label: "Notifications" },
       { href: "/admin/roblox", label: "Roblox Verifications" },
       { href: "/admin/roblox-finder", label: "Roblox User Finder" },
+      { href: "/admin/discord-finder", label: "Discord User Finder" },
       { href: "/admin/online-games", label: "Online Games" },
     ],
   },
