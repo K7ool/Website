@@ -168,6 +168,7 @@ export default function DiscordFinderPage() {
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [groupsOwnedOnly, setGroupsOwnedOnly] = useState(false);
 
   useEffect(() => {
     setHistory(getHistory("discord"));
@@ -863,9 +864,24 @@ export default function DiscordFinderPage() {
                     {/* Groups */}
                     {data.robloxAccount.groups && data.robloxAccount.groups.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-purple-500/10">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Groups ({data.robloxAccount.groups.length})</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-gray-500 uppercase tracking-wider">
+                            Groups ({groupsOwnedOnly ? data.robloxAccount.groups.filter((g: any) => g.rank === 255).length : data.robloxAccount.groups.length})
+                          </p>
+                          <button
+                            onClick={() => setGroupsOwnedOnly(!groupsOwnedOnly)}
+                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all border ${
+                              groupsOwnedOnly
+                                ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                                : "bg-dark-700 text-gray-500 border-purple-500/10 hover:text-gray-300"
+                            }`}
+                          >
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                            {groupsOwnedOnly ? "Owned" : "All"}
+                          </button>
+                        </div>
                         <div className="flex flex-wrap gap-2">
-                          {data.robloxAccount.groups.slice(0, 10).map((group: any) => (
+                          {(groupsOwnedOnly ? data.robloxAccount.groups.filter((g: any) => g.rank === 255) : data.robloxAccount.groups.slice(0, 10)).map((group: any) => (
                             <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
                               className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-700/50 border border-purple-500/5 hover:bg-dark-700 transition-colors text-left">
                               {group.emblemUrl ? (
@@ -877,9 +893,15 @@ export default function DiscordFinderPage() {
                                 <p className="text-[11px] text-white truncate max-w-28">{group.name}</p>
                                 <p className="text-[9px] text-purple-400">{group.role}</p>
                               </div>
+                              {group.rank === 255 && (
+                                <svg className="w-3 h-3 text-yellow-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                              )}
                             </button>
                           ))}
                         </div>
+                        {groupsOwnedOnly && data.robloxAccount.groups.filter((g: any) => g.rank === 255).length === 0 && (
+                          <p className="text-[11px] text-gray-500 py-2">No owned groups</p>
+                        )}
                       </div>
                     )}
 

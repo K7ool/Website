@@ -106,6 +106,7 @@ export default function RobloxFinderPage() {
   const [copiedAll, setCopiedAll] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [groupsOwnedOnly, setGroupsOwnedOnly] = useState(false);
 
   useEffect(() => {
     setHistory(getHistory("roblox"));
@@ -477,9 +478,22 @@ export default function RobloxFinderPage() {
                 )}
                 {data.groups.length > 0 && (
                   <GlassCard>
-                    <h3 className="text-sm font-semibold text-white mb-3">Groups</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-white">Groups</h3>
+                      <button
+                        onClick={() => setGroupsOwnedOnly(!groupsOwnedOnly)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                          groupsOwnedOnly
+                            ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                            : "bg-dark-700 text-gray-500 border-purple-500/10 hover:text-gray-300"
+                        }`}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        {groupsOwnedOnly ? "Owned" : "All"}
+                      </button>
+                    </div>
                     <div className="space-y-2">
-                      {data.groups.slice(0, 5).map((group: any) => (
+                      {(groupsOwnedOnly ? data.groups.filter((g: any) => g.rank === 255) : data.groups.slice(0, 5)).map((group: any) => (
                         <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors w-full text-left"
                         >
@@ -492,11 +506,14 @@ export default function RobloxFinderPage() {
                             <p className="text-sm text-white truncate">{group.name}</p>
                             <p className="text-[10px] text-gray-500">{group.role} (Rank {group.rank})</p>
                           </div>
+                          {group.rank === 255 && (
+                            <svg className="w-4 h-4 text-yellow-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                          )}
                           <svg className="w-4 h-4 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                       ))}
                     </div>
-                    {data.groups.length > 5 && (
+                    {!groupsOwnedOnly && data.groups.length > 5 && (
                       <button onClick={() => setTab("groups")} className="mt-2 text-xs text-purple-400 hover:text-purple-300 transition-colors">
                         View all {data.groups.length} groups →
                       </button>
@@ -603,14 +620,29 @@ export default function RobloxFinderPage() {
             {tab === "groups" && (
               <GlassCard>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-white">Groups ({data.groups.length})</h3>
-                  <CopyBtn text={JSON.stringify(data.groups.map((g: any) => g.name))} label="Copy group names" />
+                  <h3 className="text-sm font-semibold text-white">
+                    Groups ({groupsOwnedOnly ? data.groups.filter((g: any) => g.rank === 255).length : data.groups.length})
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setGroupsOwnedOnly(!groupsOwnedOnly)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                        groupsOwnedOnly
+                          ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                          : "bg-dark-700 text-gray-500 border-purple-500/10 hover:text-gray-300"
+                      }`}
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                      {groupsOwnedOnly ? "Owned Only" : "Show Owned"}
+                    </button>
+                    <CopyBtn text={JSON.stringify(data.groups.map((g: any) => g.name))} label="Copy group names" />
+                  </div>
                 </div>
                 {data.groups.length === 0 ? (
                   <p className="text-sm text-gray-500">No groups found.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.groups.map((group: any) => (
+                    {(groupsOwnedOnly ? data.groups.filter((g: any) => g.rank === 255) : data.groups).map((group: any) => (
                       <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
                         className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full"
                       >
@@ -622,6 +654,9 @@ export default function RobloxFinderPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1">
                             <p className="text-sm text-white font-medium truncate">{group.name}</p>
+                            {group.rank === 255 && (
+                              <svg className="w-3.5 h-3.5 text-yellow-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                            )}
                             <CopyBtn text={group.name} />
                           </div>
                           <p className="text-xs text-purple-400">{group.role}</p>
@@ -631,6 +666,9 @@ export default function RobloxFinderPage() {
                       </button>
                     ))}
                   </div>
+                )}
+                {groupsOwnedOnly && data.groups.filter((g: any) => g.rank === 255).length === 0 && (
+                  <p className="text-xs text-gray-500 text-center py-4">No owned groups found</p>
                 )}
               </GlassCard>
             )}
