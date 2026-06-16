@@ -807,6 +807,20 @@ export default function RobloxFinderPage() {
                   <h3 className="text-sm font-semibold text-white capitalize">
                     {tab} ({socialData?.totalCount ?? "..."})
                   </h3>
+                  <button
+                    onClick={() => {
+                      setSocialData(null);
+                      setSocialPage(1);
+                      loadSocial(tab);
+                    }}
+                    disabled={socialLoading}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-gray-500 hover:text-purple-400 transition-all disabled:opacity-50"
+                    title="Refresh"
+                  >
+                    <svg className={`w-4 h-4 ${socialLoading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
                 </div>
                 {tab === "friends" && socialData && socialData.users.length > 0 && (
                   <div className="flex gap-1.5 mb-3 flex-wrap">
