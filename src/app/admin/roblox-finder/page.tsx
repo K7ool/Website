@@ -8,6 +8,18 @@ import GroupDetailModal from "@/components/GroupDetailModal";
 import GameDetailModal from "@/components/GameDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 
+function proxyUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  if (url.startsWith("/api/")) return url;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("rbxcdn.com") || u.hostname.includes("roblox.com")) {
+      return `/api/roblox/image?url=${encodeURIComponent(url)}`;
+    }
+  } catch {}
+  return url;
+}
+
 interface RobloxUserData {
   userId: number;
   username: string;
@@ -48,10 +60,13 @@ interface RobloxUserData {
   collectibles: any[];
 }
 
-type Tab = "overview" | "games" | "favorites" | "groups" | "badges" | "inventory";
+type Tab = "overview" | "games" | "favorites" | "groups" | "badges" | "inventory" | "friends" | "followers" | "following";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "friends", label: "Friends" },
+  { key: "followers", label: "Followers" },
+  { key: "following", label: "Following" },
   { key: "games", label: "Games" },
   { key: "favorites", label: "Favorites" },
   { key: "groups", label: "Groups" },
@@ -111,6 +126,10 @@ export default function RobloxFinderPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [selectedGameUniverseId, setSelectedGameUniverseId] = useState<number | null>(null);
   const [groupsOwnedOnly, setGroupsOwnedOnly] = useState(false);
+  const [socialData, setSocialData] = useState<{ users: any[]; nextPageCursor: string | null; previousPageCursor: string | null; totalCount: number } | null>(null);
+  const [socialLoading, setSocialLoading] = useState(false);
+  const [socialCursor, setSocialCursor] = useState("");
+  const [selectedSocialUser, setSelectedSocialUser] = useState<number | null>(null);
 
   useEffect(() => {
     setHistory(getHistory("roblox"));
@@ -151,6 +170,8 @@ export default function RobloxFinderPage() {
     setLoading(true);
     setError("");
     setData(null);
+    setSocialData(null);
+    setSocialCursor("");
     try {
       const res = await fetch("/api/roblox/find", {
         method: "POST",
@@ -162,6 +183,7 @@ export default function RobloxFinderPage() {
         setError(json.error || "Failed to find user");
       } else {
         setData(json.data);
+        setTab("overview");
         setHistory(addToHistory("roblox", q, json.data.displayName || json.data.username || q));
       }
     } catch {
@@ -179,6 +201,32 @@ export default function RobloxFinderPage() {
     clearHistory("roblox");
     setHistory([]);
   };
+
+  const loadSocial = async (type: string, cursor?: string, append = false) => {
+    if (!data) return;
+    setSocialLoading(true);
+    try {
+      const url = `/api/roblox/social?userId=${data.userId}&type=${type}${cursor ? `&cursor=${cursor}` : ""}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success) {
+        setSocialData((prev) => {
+          if (append && prev) {
+            return { users: [...prev.users, ...json.data.users], nextPageCursor: json.data.nextPageCursor, previousPageCursor: json.data.previousPageCursor, totalCount: json.data.totalCount };
+          }
+          return json.data;
+        });
+      }
+    } catch {}
+    setSocialLoading(false);
+  };
+
+  useEffect(() => {
+    if (!data || !["friends", "followers", "following"].includes(tab)) return;
+    setSocialCursor("");
+    setSocialData(null);
+    loadSocial(tab);
+  }, [tab, data?.userId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") search();
@@ -275,9 +323,9 @@ export default function RobloxFinderPage() {
                 <div className="flex flex-col items-center gap-2 shrink-0">
                   <div className="w-32 h-32 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10 group relative">
                     {data.avatarHeadshotHd ? (
-                      <img src={data.avatarHeadshotHd} alt={data.username} className="w-full h-full object-cover" />
+                      <img src={proxyUrl(data.avatarHeadshotHd)} alt={data.username} className="w-full h-full object-cover" />
                     ) : data.avatarHeadshot ? (
-                      <img src={data.avatarHeadshot} alt={data.username} className="w-full h-full object-cover" />
+                      <img src={proxyUrl(data.avatarHeadshot)} alt={data.username} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-4xl text-gray-600">
                         {data.username?.[0]?.toUpperCase() || "?"}
@@ -293,12 +341,12 @@ export default function RobloxFinderPage() {
                   <div className="flex gap-1.5">
                     {data.avatarFull && (
                       <a href={data.avatarFull} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden bg-dark-700 border border-purple-500/10 block hover:opacity-80 transition-opacity" title="Full body">
-                        <img src={data.avatarFull} alt="full body" className="w-full h-full object-cover" />
+                        <img src={proxyUrl(data.avatarFull)} alt="full body" className="w-full h-full object-cover" />
                       </a>
                     )}
                     {data.avatar3d && (
                       <a href={data.avatar3d} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden bg-dark-700 border border-purple-500/10 block hover:opacity-80 transition-opacity" title="3D Avatar">
-                        <img src={data.avatar3d} alt="3D" className="w-full h-full object-cover" />
+                        <img src={proxyUrl(data.avatar3d)} alt="3D" className="w-full h-full object-cover" />
                       </a>
                     )}
                   </div>
@@ -403,7 +451,7 @@ export default function RobloxFinderPage() {
                   <div className="py-2 border-b border-purple-500/5 space-y-2">
                     <div className="flex items-center gap-3 p-2 rounded-lg bg-dark-700/50">
                       {data.currentGame.thumbnail ? (
-                        <img src={data.currentGame.thumbnail} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
+                        <img src={proxyUrl(data.currentGame.thumbnail)} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
                       ) : (
                         <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
                       )}
@@ -493,7 +541,7 @@ export default function RobloxFinderPage() {
                             className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors w-full text-left"
                           >
                             {game.image ? (
-                              <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
+                              <img src={proxyUrl(game.image)} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
                             ) : (
                               <div className="w-10 h-10 rounded bg-dark-700 flex items-center justify-center text-gray-600">🎮</div>
                             )}
@@ -535,7 +583,7 @@ export default function RobloxFinderPage() {
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors w-full text-left"
                         >
                           {group.emblemUrl ? (
-                            <img src={group.emblemUrl} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
+                            <img src={proxyUrl(group.emblemUrl)} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
                           ) : (
                             <div className="w-10 h-10 rounded bg-dark-700 flex items-center justify-center text-gray-600">👥</div>
                           )}
@@ -563,7 +611,7 @@ export default function RobloxFinderPage() {
                     <div className="flex flex-wrap gap-2">
                       {data.badges.slice(0, 12).map((badge: any) => (
                         <div key={badge.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-dark-700 text-xs text-gray-300">
-                          {badge.imageUrl && <img src={badge.imageUrl} alt="" className="w-4 h-4 rounded" />}
+                          {badge.imageUrl && <img src={proxyUrl(badge.imageUrl)} alt="" className="w-4 h-4 rounded" />}
                           <span className="truncate max-w-28">{badge.name}</span>
                         </div>
                       ))}
@@ -582,7 +630,7 @@ export default function RobloxFinderPage() {
                       {data.collectibles.slice(0, 10).map((item: any) => (
                         <div key={item.assetId} className="flex flex-col items-center gap-1 p-1 rounded-lg bg-dark-700">
                           {item.thumbnailUrl ? (
-                            <img src={item.thumbnailUrl} alt="" className="w-10 h-10 rounded object-cover" />
+                            <img src={proxyUrl(item.thumbnailUrl)} alt="" className="w-10 h-10 rounded object-cover" />
                           ) : (
                             <div className="w-10 h-10 rounded bg-dark-800 flex items-center justify-center text-xs text-gray-600">?</div>
                           )}
@@ -615,7 +663,7 @@ export default function RobloxFinderPage() {
                         <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
                           className="block p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 group text-left w-full"
                         >
-                          {game.image && <img src={game.image} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
+                          {game.image && <img src={proxyUrl(game.image)} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
                           <div className="flex items-start justify-between gap-1">
                             <p className="text-sm text-white font-medium truncate">{game.name}</p>
                             <CopyBtn text={game.name} />
@@ -646,7 +694,7 @@ export default function RobloxFinderPage() {
                         <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
                           className="block p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full"
                         >
-                          {game.image && <img src={game.image} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
+                          {game.image && <img src={proxyUrl(game.image)} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
                           <div className="flex items-start justify-between gap-1">
                             <p className="text-sm text-white font-medium truncate">{game.name}</p>
                             <CopyBtn text={game.name} />
@@ -690,7 +738,7 @@ export default function RobloxFinderPage() {
                         className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full"
                       >
                         {group.emblemUrl ? (
-                          <img src={group.emblemUrl} alt="" className="w-12 h-12 rounded object-cover bg-dark-600" />
+                          <img src={proxyUrl(group.emblemUrl)} alt="" className="w-12 h-12 rounded object-cover bg-dark-600" />
                         ) : (
                           <div className="w-12 h-12 rounded bg-dark-600 flex items-center justify-center text-lg">👥</div>
                         )}
@@ -728,7 +776,7 @@ export default function RobloxFinderPage() {
                   <div className="flex flex-wrap gap-2">
                     {data.badges.map((badge: any) => (
                       <div key={badge.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-700/50 border border-purple-500/5">
-                        {badge.imageUrl && <img src={badge.imageUrl} alt="" className="w-6 h-6 rounded" />}
+                        {badge.imageUrl && <img src={proxyUrl(badge.imageUrl)} alt="" className="w-6 h-6 rounded" />}
                         <div>
                           <div className="flex items-center gap-1">
                             <p className="text-sm text-white">{badge.name}</p>
@@ -739,6 +787,74 @@ export default function RobloxFinderPage() {
                       </div>
                     ))}
                   </div>
+                )}
+              </GlassCard>
+            )}
+
+            {(["friends", "followers", "following"] as Tab[]).includes(tab) && (
+              <GlassCard>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-white capitalize">
+                    {tab} ({socialData?.totalCount ?? "..."})
+                  </h3>
+                </div>
+                {!socialData && socialLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : !socialData || socialData.users.length === 0 ? (
+                  <p className="text-sm text-gray-500">No {tab} found.</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {socialData.users.map((user: any) => (
+                        <div
+                          key={user.userId}
+                          className="flex items-center gap-3 p-2 rounded-lg bg-dark-700/30 border border-purple-500/5 hover:bg-purple-500/5 transition-all group cursor-pointer"
+                          onClick={() => {
+                            setSelectedSocialUser(user.userId);
+                            setQuery(String(user.userId));
+                            setTimeout(() => { search(String(user.userId)); }, 50);
+                          }}
+                        >
+                          <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
+                            <img
+                              src={`/api/roblox/avatar?userId=${user.userId}&circle=1`}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=6366f1&color=fff&size=150`; }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm text-white hover:text-purple-400 transition-colors truncate">
+                                {user.displayName}
+                              </span>
+                              {user.hasVerifiedBadge && (
+                                <svg className="w-3 h-3 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[11px] text-gray-500 truncate">@{user.username}</p>
+                              {user.isOnline && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" title="Online" />}
+                            </div>
+                          </div>
+                          <svg className="w-3.5 h-3.5 text-gray-600 group-hover:text-purple-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </div>
+                      ))}
+                    </div>
+                    {socialData.nextPageCursor && (
+                      <div className="flex justify-center pt-4">
+                        <button
+                          onClick={() => loadSocial(tab, socialData.nextPageCursor!, true)}
+                          disabled={socialLoading}
+                          className="px-4 py-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-sm font-medium transition-all border border-purple-500/20 disabled:opacity-50"
+                        >
+                          {socialLoading ? "Loading..." : "Load More"}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </GlassCard>
             )}
@@ -757,7 +873,7 @@ export default function RobloxFinderPage() {
                       <div key={item.assetId} className="p-2 rounded-lg bg-dark-700/50 border border-purple-500/5 text-center group">
                         <div className="relative">
                           {item.thumbnailUrl ? (
-                            <img src={item.thumbnailUrl} alt="" className="w-full aspect-square rounded object-cover bg-dark-600" />
+                            <img src={proxyUrl(item.thumbnailUrl)} alt="" className="w-full aspect-square rounded object-cover bg-dark-600" />
                           ) : (
                             <div className="w-full aspect-square rounded bg-dark-600 flex items-center justify-center text-gray-600 text-xs">No img</div>
                           )}

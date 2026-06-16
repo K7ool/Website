@@ -3,6 +3,18 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+function proxyUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  if (url.startsWith("/api/")) return url;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("rbxcdn.com") || u.hostname.includes("roblox.com")) {
+      return `/api/roblox/image?url=${encodeURIComponent(url)}`;
+    }
+  } catch {}
+  return url;
+}
+
 interface GroupOwner {
   userId: number;
   username: string;
@@ -85,6 +97,8 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("info");
+  const [membersPage, setMembersPage] = useState(1);
+  const MEMBERS_PER_PAGE = 20;
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +115,11 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
       .catch(() => setError("Network error"))
       .finally(() => setLoading(false));
   }, [groupId]);
+
+  const resetPage = (newTab: Tab) => {
+    setTab(newTab);
+    if (newTab === "members") setMembersPage(1);
+  };
 
   return (
     <AnimatePresence>
@@ -160,7 +179,7 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
                   {([["info", "Info"], ["roles", `Roles (${data.roles.length})`], ["members", `Members (${data.totalMembers})`]] as [Tab, string][]).map(([key, label]) => (
                     <button
                       key={key}
-                      onClick={() => setTab(key)}
+                      onClick={() => resetPage(key)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         tab === key
                           ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
@@ -290,52 +309,65 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
                     {data.members.length === 0 ? (
                       <p className="text-sm text-gray-500 text-center py-4">No members loaded</p>
                     ) : (
-                      data.members.map((member) => (
-                        <div key={member.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group">
-                          <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
-                            <img
-                              src={`/api/roblox/avatar?userId=${member.userId}&circle=1`}
-                              alt=""
-                              className="w-full h-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.displayName)}&background=6366f1&color=fff&size=150`; }}
-                            />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1">
-                              <a
-                                href={`https://www.roblox.com/users/${member.userId}/profile`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-white hover:text-purple-400 transition-colors truncate"
-                              >
-                                {member.displayName}
-                              </a>
-                              {member.hasVerifiedBadge && (
-                                <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                      <>
+                        {data.members.slice(0, membersPage * MEMBERS_PER_PAGE).map((member) => (
+                          <div key={member.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group">
+                            <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
+                              <img
+                                src={`/api/roblox/avatar?userId=${member.userId}&circle=1`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.displayName)}&background=6366f1&color=fff&size=150`; }}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1">
+                                <a
+                                  href={`https://www.roblox.com/users/${member.userId}/profile`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-white hover:text-purple-400 transition-colors truncate"
+                                >
+                                  {member.displayName}
+                                </a>
+                                {member.hasVerifiedBadge && (
+                                  <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-gray-500 truncate">@{member.username}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-medium">{member.role}</span>
+                              <span className="text-[10px] text-gray-600 font-mono w-8 text-right">#{member.rank}</span>
+                              {onMemberClick && (
+                                <button
+                                  onClick={() => onMemberClick(member.userId, member.username)}
+                                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 transition-all"
+                                  title="Search in Roblox Finder"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                </button>
                               )}
                             </div>
-                            <p className="text-[11px] text-gray-500 truncate">@{member.username}</p>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-medium">{member.role}</span>
-                            <span className="text-[10px] text-gray-600 font-mono w-8 text-right">#{member.rank}</span>
-                            {onMemberClick && (
-                              <button
-                                onClick={() => onMemberClick(member.userId, member.username)}
-                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 transition-all"
-                                title="Search in Roblox Finder"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                              </button>
+                        ))}
+                        <div className="flex items-center justify-between pt-3 border-t border-purple-500/10">
+                          <p className="text-xs text-gray-500">
+                            Showing {Math.min(membersPage * MEMBERS_PER_PAGE, data.members.length)} of {data.members.length.toLocaleString()} loaded
+                            {data.totalMembers > data.members.length && (
+                              <span className="text-gray-600"> ({data.totalMembers.toLocaleString()} total)</span>
                             )}
-                          </div>
+                          </p>
+                          {membersPage * MEMBERS_PER_PAGE < data.members.length && (
+                            <button
+                              onClick={() => setMembersPage((p) => p + 1)}
+                              className="px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium transition-all border border-purple-500/20"
+                            >
+                              Load More
+                            </button>
+                          )}
                         </div>
-                      ))
-                    )}
-                    {data.totalMembers > data.members.length && (
-                      <p className="text-xs text-gray-500 text-center pt-2">
-                        Showing {data.members.length} of {data.totalMembers.toLocaleString()} members
-                      </p>
+                      </>
                     )}
                   </div>
                 )}

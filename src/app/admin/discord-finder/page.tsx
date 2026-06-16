@@ -9,6 +9,18 @@ import GameDetailModal from "@/components/GameDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 import { getManualLink, setManualLink as saveManualLink, removeManualLink, type ManualRobloxLink } from "@/lib/manual-roblox-links";
 
+function proxyUrl(url: string | undefined | null): string {
+  if (!url) return "";
+  if (url.startsWith("/api/")) return url;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("rbxcdn.com") || u.hostname.includes("roblox.com")) {
+      return `/api/roblox/image?url=${encodeURIComponent(url)}`;
+    }
+  } catch {}
+  return url;
+}
+
 interface DiscordBadge {
   name: string;
   icon: string;
@@ -687,11 +699,11 @@ export default function DiscordFinderPage() {
                       <div className="flex flex-col items-center gap-2 shrink-0">
                         <div className="w-28 h-28 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10 group relative">
                           {data.robloxAccount.avatarHeadshotHd ? (
-                            <img src={data.robloxAccount.avatarHeadshotHd} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                            <img src={proxyUrl(data.robloxAccount.avatarHeadshotHd)} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
                           ) : data.robloxAccount.avatarHeadshot ? (
-                            <img src={data.robloxAccount.avatarHeadshot} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                            <img src={proxyUrl(data.robloxAccount.avatarHeadshot)} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
                           ) : data.robloxAccount.avatarUrl ? (
-                            <img src={data.robloxAccount.avatarUrl} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                            <img src={proxyUrl(data.robloxAccount.avatarUrl)} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-3xl text-gray-600 bg-dark-600">
                               {data.robloxAccount.username?.[0]?.toUpperCase() || "?"}
@@ -704,12 +716,12 @@ export default function DiscordFinderPage() {
                         <div className="flex gap-1.5">
                           {data.robloxAccount.avatarFull && (
                             <a href={data.robloxAccount.avatarFull} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden bg-dark-700 border border-purple-500/10 block hover:opacity-80 transition-opacity" title="Full body">
-                              <img src={data.robloxAccount.avatarFull} alt="full body" className="w-full h-full object-cover" />
+                              <img src={proxyUrl(data.robloxAccount.avatarFull)} alt="full body" className="w-full h-full object-cover" />
                             </a>
                           )}
                           {data.robloxAccount.avatar3d && (
                             <a href={data.robloxAccount.avatar3d} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden bg-dark-700 border border-purple-500/10 block hover:opacity-80 transition-opacity" title="3D Avatar">
-                              <img src={data.robloxAccount.avatar3d} alt="3D" className="w-full h-full object-cover" />
+                              <img src={proxyUrl(data.robloxAccount.avatar3d)} alt="3D" className="w-full h-full object-cover" />
                             </a>
                           )}
                         </div>
@@ -807,7 +819,7 @@ export default function DiscordFinderPage() {
                         <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Currently Playing</p>
                         <div className="flex items-center gap-3 p-2 rounded-lg bg-dark-700/50">
                           {data.robloxAccount.currentGame.thumbnail ? (
-                            <img src={data.robloxAccount.currentGame.thumbnail} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
+                            <img src={proxyUrl(data.robloxAccount.currentGame.thumbnail)} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
                           ) : (
                             <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
                           )}
@@ -889,7 +901,7 @@ export default function DiscordFinderPage() {
                             <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
                               className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-700/50 border border-purple-500/5 hover:bg-dark-700 transition-colors text-left">
                               {group.emblemUrl ? (
-                                <img src={group.emblemUrl} alt="" className="w-6 h-6 rounded object-cover bg-dark-600" />
+                                <img src={proxyUrl(group.emblemUrl)} alt="" className="w-6 h-6 rounded object-cover bg-dark-600" />
                               ) : (
                                 <div className="w-6 h-6 rounded bg-dark-600 flex items-center justify-center text-[10px]">👥</div>
                               )}
@@ -920,7 +932,7 @@ export default function DiscordFinderPage() {
                               <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
                                 className="flex items-center gap-2 p-2 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full">
                                 {game.image ? (
-                                  <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
+                                  <img src={proxyUrl(game.image)} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
                                 ) : (
                                   <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
                                 )}
@@ -942,7 +954,7 @@ export default function DiscordFinderPage() {
                         <div className="flex flex-wrap gap-1.5">
                           {data.robloxAccount.badges.slice(0, 15).map((badge: any) => (
                             <div key={badge.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-dark-700 text-[10px] text-gray-300">
-                              {badge.imageUrl && <img src={badge.imageUrl} alt="" className="w-3.5 h-3.5 rounded" />}
+                              {badge.imageUrl && <img src={proxyUrl(badge.imageUrl)} alt="" className="w-3.5 h-3.5 rounded" />}
                               <span className="truncate max-w-24">{badge.name}</span>
                             </div>
                           ))}
@@ -958,7 +970,7 @@ export default function DiscordFinderPage() {
                           {data.robloxAccount.collectibles.slice(0, 10).map((item: any) => (
                             <div key={item.assetId} className="p-1.5 rounded-lg bg-dark-700/50 border border-purple-500/5 text-center">
                               {item.thumbnailUrl ? (
-                                <img src={item.thumbnailUrl} alt="" className="w-full aspect-square rounded object-cover bg-dark-600" />
+                                <img src={proxyUrl(item.thumbnailUrl)} alt="" className="w-full aspect-square rounded object-cover bg-dark-600" />
                               ) : (
                                 <div className="w-full aspect-square rounded bg-dark-600 flex items-center justify-center text-gray-600 text-[10px]">?</div>
                               )}
