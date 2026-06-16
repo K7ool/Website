@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
+import GroupDetailModal from "@/components/GroupDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 import { getManualLink, setManualLink as saveManualLink, removeManualLink, type ManualRobloxLink } from "@/lib/manual-roblox-links";
 
@@ -166,6 +167,7 @@ export default function DiscordFinderPage() {
   const [linkUsername, setLinkUsername] = useState("");
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   useEffect(() => {
     setHistory(getHistory("discord"));
@@ -864,8 +866,8 @@ export default function DiscordFinderPage() {
                         <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Groups ({data.robloxAccount.groups.length})</p>
                         <div className="flex flex-wrap gap-2">
                           {data.robloxAccount.groups.slice(0, 10).map((group: any) => (
-                            <a key={group.id} href={`https://www.roblox.com/groups/${group.id}`} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-700/50 border border-purple-500/5 hover:bg-dark-700 transition-colors">
+                            <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
+                              className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-700/50 border border-purple-500/5 hover:bg-dark-700 transition-colors text-left">
                               {group.emblemUrl ? (
                                 <img src={group.emblemUrl} alt="" className="w-6 h-6 rounded object-cover bg-dark-600" />
                               ) : (
@@ -875,7 +877,7 @@ export default function DiscordFinderPage() {
                                 <p className="text-[11px] text-white truncate max-w-28">{group.name}</p>
                                 <p className="text-[9px] text-purple-400">{group.role}</p>
                               </div>
-                            </a>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -977,6 +979,10 @@ export default function DiscordFinderPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {selectedGroupId && (
+        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} />
+      )}
     </div>
   );
 }

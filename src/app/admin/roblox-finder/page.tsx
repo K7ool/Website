@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
+import GroupDetailModal from "@/components/GroupDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 
 interface RobloxUserData {
@@ -104,6 +105,7 @@ export default function RobloxFinderPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const [copiedAll, setCopiedAll] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   useEffect(() => {
     setHistory(getHistory("roblox"));
@@ -478,8 +480,8 @@ export default function RobloxFinderPage() {
                     <h3 className="text-sm font-semibold text-white mb-3">Groups</h3>
                     <div className="space-y-2">
                       {data.groups.slice(0, 5).map((group: any) => (
-                        <a key={group.id} href={`https://www.roblox.com/groups/${group.id}`} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors"
+                        <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors w-full text-left"
                         >
                           {group.emblemUrl ? (
                             <img src={group.emblemUrl} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
@@ -490,7 +492,8 @@ export default function RobloxFinderPage() {
                             <p className="text-sm text-white truncate">{group.name}</p>
                             <p className="text-[10px] text-gray-500">{group.role} (Rank {group.rank})</p>
                           </div>
-                        </a>
+                          <svg className="w-4 h-4 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
                       ))}
                     </div>
                     {data.groups.length > 5 && (
@@ -608,8 +611,8 @@ export default function RobloxFinderPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {data.groups.map((group: any) => (
-                      <a key={group.id} href={`https://www.roblox.com/groups/${group.id}`} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5"
+                      <button key={group.id} onClick={() => setSelectedGroupId(group.id)}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full"
                       >
                         {group.emblemUrl ? (
                           <img src={group.emblemUrl} alt="" className="w-12 h-12 rounded object-cover bg-dark-600" />
@@ -624,7 +627,8 @@ export default function RobloxFinderPage() {
                           <p className="text-xs text-purple-400">{group.role}</p>
                           <p className="text-[10px] text-gray-600">Rank {group.rank}</p>
                         </div>
-                      </a>
+                        <svg className="w-4 h-4 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -693,6 +697,10 @@ export default function RobloxFinderPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {selectedGroupId && (
+        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} />
+      )}
     </div>
   );
 }
