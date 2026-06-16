@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
 import GroupDetailModal from "@/components/GroupDetailModal";
 import GameDetailModal from "@/components/GameDetailModal";
+import UserDetailModal from "@/components/UserDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 
 function proxyUrl(url: string | undefined | null): string {
@@ -130,6 +131,10 @@ export default function RobloxFinderPage() {
   const [socialLoading, setSocialLoading] = useState(false);
   const [socialCursor, setSocialCursor] = useState("");
   const [selectedSocialUser, setSelectedSocialUser] = useState<number | null>(null);
+  const [socialFilter, setSocialFilter] = useState<string>("all");
+  const [socialPage, setSocialPage] = useState(1);
+  const SOCIAL_PER_PAGE = 20;
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     setHistory(getHistory("roblox"));
@@ -225,6 +230,8 @@ export default function RobloxFinderPage() {
     if (!data || !["friends", "followers", "following"].includes(tab)) return;
     setSocialCursor("");
     setSocialData(null);
+    setSocialFilter("all");
+    setSocialPage(1);
     loadSocial(tab);
   }, [tab, data?.userId]);
 
@@ -509,6 +516,9 @@ export default function RobloxFinderPage() {
                   : t.key === "groups" ? data.groups.length
                   : t.key === "badges" ? data.badges.length
                   : t.key === "inventory" ? data.collectibles.length
+                  : t.key === "friends" ? data.friendsCount
+                  : t.key === "followers" ? data.followersCount
+                  : t.key === "following" ? data.followingCount
                   : 0;
                 return (
                   <button
@@ -793,11 +803,42 @@ export default function RobloxFinderPage() {
 
             {(["friends", "followers", "following"] as Tab[]).includes(tab) && (
               <GlassCard>
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-white capitalize">
                     {tab} ({socialData?.totalCount ?? "..."})
                   </h3>
                 </div>
+                {tab === "friends" && socialData && socialData.users.length > 0 && (
+                  <div className="flex gap-1.5 mb-3 flex-wrap">
+                    {[
+                      { key: "all", label: "All" },
+                      { key: "online", label: "Online" },
+                      { key: "offline", label: "Offline" },
+                      { key: "ingame", label: "In Game" },
+                      { key: "instudio", label: "In Studio" },
+                    ].map((f) => {
+                      const count = f.key === "all" ? socialData.users.length
+                        : f.key === "online" ? socialData.users.filter((u: any) => u.presenceType === 1).length
+                        : f.key === "offline" ? socialData.users.filter((u: any) => u.presenceType === 0).length
+                        : f.key === "ingame" ? socialData.users.filter((u: any) => u.presenceType === 2).length
+                        : socialData.users.filter((u: any) => u.presenceType === 3).length;
+                      return (
+                        <button
+                          key={f.key}
+                          onClick={() => { setSocialFilter(f.key); setSocialPage(1); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            socialFilter === f.key
+                              ? "bg-purple-600/30 text-purple-200 border border-purple-500/30"
+                              : "text-gray-400 hover:text-gray-200 border border-transparent hover:border-purple-500/10"
+                          }`}
+                        >
+                          {f.label}
+                          <span className="ml-1 text-[10px] text-gray-500">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {!socialData && socialLoading ? (
                   <div className="flex justify-center py-8">
                     <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
@@ -806,54 +847,87 @@ export default function RobloxFinderPage() {
                   <p className="text-sm text-gray-500">No {tab} found.</p>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                      {socialData.users.map((user: any) => (
-                        <div
-                          key={user.userId}
-                          className="flex items-center gap-3 p-2 rounded-lg bg-dark-700/30 border border-purple-500/5 hover:bg-purple-500/5 transition-all group cursor-pointer"
-                          onClick={() => {
-                            setSelectedSocialUser(user.userId);
-                            setQuery(String(user.userId));
-                            setTimeout(() => { search(String(user.userId)); }, 50);
-                          }}
-                        >
-                          <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
-                            <img
-                              src={`/api/roblox/avatar?userId=${user.userId}&circle=1`}
-                              alt=""
-                              className="w-full h-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=6366f1&color=fff&size=150`; }}
-                            />
+                    {(() => {
+                      const filtered = tab === "friends" && socialFilter !== "all"
+                        ? socialData.users.filter((u: any) => {
+                            if (socialFilter === "online") return u.presenceType === 1;
+                            if (socialFilter === "offline") return u.presenceType === 0;
+                            if (socialFilter === "ingame") return u.presenceType === 2;
+                            if (socialFilter === "instudio") return u.presenceType === 3;
+                            return true;
+                          })
+                        : socialData.users;
+                      const displayed = filtered.slice(0, socialPage * SOCIAL_PER_PAGE);
+                      const hasMore = displayed.length < filtered.length;
+                      return (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {displayed.map((user: any) => {
+                              const presLabel = user.presenceType === 2 ? "In Game" : user.presenceType === 3 ? "In Studio" : user.presenceType === 1 ? "Online" : "Offline";
+                              const presColor = user.presenceType === 2 ? "bg-blue-400" : user.presenceType === 3 ? "bg-yellow-400" : user.presenceType === 1 ? "bg-green-400" : "bg-gray-500";
+                              return (
+                                <div
+                                  key={user.userId}
+                                  className="flex items-center gap-3 p-2 rounded-lg bg-dark-700/30 border border-purple-500/5 hover:bg-purple-500/5 transition-all group cursor-pointer"
+                                  onClick={() => setSelectedUserId(user.userId)}
+                                >
+                                  <div className="relative">
+                                    <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
+                                      <img
+                                        src={`/api/roblox/avatar?userId=${user.userId}&circle=1`}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName)}&background=6366f1&color=fff&size=150`; }}
+                                      />
+                                    </div>
+                                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-dark-700 ${presColor}`} title={presLabel} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-sm text-white group-hover:text-purple-400 transition-colors truncate">
+                                        {user.displayName}
+                                      </span>
+                                      {user.hasVerifiedBadge && (
+                                        <svg className="w-3 h-3 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-500 truncate">@{user.username}</p>
+                                  </div>
+                                  <svg className="w-3.5 h-3.5 text-gray-600 group-hover:text-purple-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm text-white hover:text-purple-400 transition-colors truncate">
-                                {user.displayName}
-                              </span>
-                              {user.hasVerifiedBadge && (
-                                <svg className="w-3 h-3 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                          <div className="flex items-center justify-between pt-3 mt-2 border-t border-purple-500/10">
+                            <p className="text-xs text-gray-500">
+                              Showing {displayed.length} of {filtered.length}
+                              {socialFilter !== "all" && filtered.length !== socialData.users.length && (
+                                <span className="text-gray-600"> (filtered from {socialData.users.length})</span>
                               )}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-[11px] text-gray-500 truncate">@{user.username}</p>
-                              {user.isOnline && <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" title="Online" />}
-                            </div>
+                            </p>
+                            {hasMore && (
+                              <button
+                                onClick={() => setSocialPage((p) => p + 1)}
+                                className="px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium transition-all border border-purple-500/20"
+                              >
+                                Load More
+                              </button>
+                            )}
                           </div>
-                          <svg className="w-3.5 h-3.5 text-gray-600 group-hover:text-purple-400 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </div>
-                      ))}
-                    </div>
-                    {socialData.nextPageCursor && (
-                      <div className="flex justify-center pt-4">
-                        <button
-                          onClick={() => loadSocial(tab, socialData.nextPageCursor!, true)}
-                          disabled={socialLoading}
-                          className="px-4 py-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-sm font-medium transition-all border border-purple-500/20 disabled:opacity-50"
-                        >
-                          {socialLoading ? "Loading..." : "Load More"}
-                        </button>
-                      </div>
-                    )}
+                          {!hasMore && socialData.nextPageCursor && (
+                            <div className="flex justify-center pt-3">
+                              <button
+                                onClick={() => loadSocial(tab, socialData.nextPageCursor!, true)}
+                                disabled={socialLoading}
+                                className="px-4 py-2 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-sm font-medium transition-all border border-purple-500/20 disabled:opacity-50"
+                              >
+                                {socialLoading ? "Loading more..." : "Load All from Roblox"}
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </GlassCard>
@@ -896,11 +970,15 @@ export default function RobloxFinderPage() {
       </AnimatePresence>
 
       {selectedGroupId && (
-        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} onMemberClick={(userId) => { setSelectedGroupId(null); setQuery(String(userId)); setTimeout(() => search(String(userId)), 100); }} />
+        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} />
       )}
 
       {selectedGameUniverseId && (
         <GameDetailModal universeId={selectedGameUniverseId} onClose={() => setSelectedGameUniverseId(null)} />
+      )}
+
+      {selectedUserId && (
+        <UserDetailModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
       )}
     </div>
   );

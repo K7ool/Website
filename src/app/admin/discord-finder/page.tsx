@@ -1022,7 +1022,7 @@ export default function DiscordFinderPage() {
       </AnimatePresence>
 
       {selectedGroupId && (
-        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} onMemberClick={(userId, username) => { setSelectedGroupId(null); router.push(`/admin/roblox-finder?search=${userId}`); }} />
+        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} />
       )}
 
       {selectedGameUniverseId && (

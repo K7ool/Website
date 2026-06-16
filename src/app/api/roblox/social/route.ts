@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid type" }, { status: 400 });
   }
 
-  const rl = checkRateLimit(ip, { max: 15, windowMs: 10000, store: "roblox-social" });
+  const rl = checkRateLimit(ip, { max: 20, windowMs: 10000, store: "roblox-social" });
   if (!rl) {
     return NextResponse.json({ success: false, error: "Rate limit" }, { status: 429 });
   }
@@ -41,14 +41,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
 
-    const users = (data.data || []).map((u: any) => ({
-      userId: u.id || u.userId,
-      username: u.name || u.username,
-      displayName: u.displayName,
-      hasVerifiedBadge: u.hasVerifiedBadge || false,
-      isOnline: u.isOnline || false,
-      avatarHeadshot: `https://thumbnails.roblox.com/v1/users/headshot?userIds=${u.id || u.userId}&size=150x150&format=Png`,
-    }));
+    const users = (data.data || []).map((u: any) => {
+      const id = u.id || u.userId || u.UserId;
+      const name = u.name || u.username || u.userName || "";
+      const displayName = u.displayName || u.DisplayName || name;
+      return {
+        userId: id,
+        username: name,
+        displayName,
+        hasVerifiedBadge: u.hasVerifiedBadge || u.HasVerifiedBadge || false,
+        isOnline: u.isOnline || false,
+        presenceType: u.presenceType ?? u.PresenceType ?? 0,
+      };
+    });
+
+    const userIds = users.map((u: any) => u.userId).filter(Boolean);
+    let thumbMap: Record<number, string> = {};
+    if (userIds.length > 0) {
+      const batchIds = userIds.slice(0, 100).join(",");
+      const thumbRes = await fetchJson(
+        `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${batchIds}&size=150x150&format=Png&isCircular=false`
+      );
+      if (thumbRes?.data) {
+        for (const t of thumbRes.data) {
+          if (t.targetId && t.imageUrl) thumbMap[t.targetId] = t.imageUrl;
+        }
+      }
+    }
+
+    for (const u of users) {
+      u.avatarHeadshot = thumbMap[u.userId] || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.displayName)}&background=6366f1&color=fff&size=150`;
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import UserDetailModal from "./UserDetailModal";
 
 function proxyUrl(url: string | undefined | null): string {
   if (!url) return "";
@@ -92,13 +93,14 @@ function Field({ label, value, copy }: { label: string; value: string | number; 
 
 type Tab = "info" | "roles" | "members";
 
-export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { groupId: number; onClose: () => void; onMemberClick?: (userId: number, username: string) => void }) {
+export default function GroupDetailModal({ groupId, onClose }: { groupId: number; onClose: () => void }) {
   const [data, setData] = useState<GroupDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("info");
   const [membersPage, setMembersPage] = useState(1);
   const MEMBERS_PER_PAGE = 20;
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -339,15 +341,13 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-medium">{member.role}</span>
                               <span className="text-[10px] text-gray-600 font-mono w-8 text-right">#{member.rank}</span>
-                              {onMemberClick && (
                                 <button
-                                  onClick={() => onMemberClick(member.userId, member.username)}
+                                  onClick={() => setSelectedUserId(member.userId)}
                                   className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 transition-all"
-                                  title="Search in Roblox Finder"
+                                  title="View user profile"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                 </button>
-                              )}
                             </div>
                           </div>
                         ))}
@@ -376,6 +376,10 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
           </div>
         </motion.div>
       </motion.div>
+
+      {selectedUserId && (
+        <UserDetailModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+      )}
     </AnimatePresence>
   );
 }
