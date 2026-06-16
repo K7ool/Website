@@ -854,8 +854,10 @@ export default function RobloxFinderPage() {
                   </div>
                 )}
                 {!socialData && socialLoading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs text-gray-500">Fetching {tab} list...</p>
+                    <p className="text-[10px] text-gray-600">Loading usernames and avatars</p>
                   </div>
                 ) : !socialData || socialData.users.length === 0 ? (
                   <p className="text-sm text-gray-500">No {tab} found.</p>

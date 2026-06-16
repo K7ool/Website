@@ -5,6 +5,12 @@ const ALLOWED_HOSTS = [
   "t1.rbxcdn.com",
   "t2.rbxcdn.com",
   "t3.rbxcdn.com",
+  "t4.rbxcdn.com",
+  "t5.rbxcdn.com",
+  "t6.rbxcdn.com",
+  "t7.rbxcdn.com",
+  "t8.rbxcdn.com",
+  "t9.rbxcdn.com",
   "tr.rbxcdn.com",
   "thumbs.roblox.com",
   "games.roblox.com",
@@ -31,8 +37,12 @@ export async function GET(req: NextRequest) {
     }
 
     const imageRes = await fetch(url, {
-      headers: { "User-Agent": "FlippStudios/1.0" },
-      signal: AbortSignal.timeout(8000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Referer": "https://www.roblox.com/",
+      },
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!imageRes.ok) {

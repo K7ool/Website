@@ -7,29 +7,35 @@ const ROBLOX_HEADERS = {
 };
 
 async function fetchJson(url: string, opts?: RequestInit) {
-  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(15000) });
+  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(8000) });
   if (!res.ok) return null;
   return res.json();
 }
 
 async function fetchUserBatch(ids: number[]): Promise<Record<number, { name: string; displayName: string }>> {
   const map: Record<number, { name: string; displayName: string }> = {};
-  const CONCURRENCY = 50;
-  for (let i = 0; i < ids.length; i += CONCURRENCY) {
-    const batch = ids.slice(i, i + CONCURRENCY);
-    const results = await Promise.allSettled(
-      batch.map((id) =>
-        fetchJson(`https://users.roblox.com/v1/users/${id}`).then((d) => ({ id, d }))
-      )
-    );
-    for (const r of results) {
-      if (r.status === "fulfilled" && r.value.d?.name) {
-        map[r.value.id] = {
-          name: r.value.d.name,
-          displayName: r.value.d.displayName || r.value.d.name,
-        };
+  const CONCURRENCY = 100;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    for (let i = 0; i < ids.length; i += CONCURRENCY) {
+      const batch = ids.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map((id) =>
+          fetchJson(`https://users.roblox.com/v1/users/${id}`, { signal: controller.signal }).then((d) => ({ id, d }))
+        )
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.d?.name) {
+          map[r.value.id] = {
+            name: r.value.d.name,
+            displayName: r.value.d.displayName || r.value.d.name,
+          };
+        }
       }
     }
+  } catch {} finally {
+    clearTimeout(timeout);
   }
   return map;
 }
