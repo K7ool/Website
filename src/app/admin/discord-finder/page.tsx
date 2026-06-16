@@ -27,16 +27,46 @@ interface DiscordAge {
 
 interface RobloxAccount {
   linked: boolean;
+  isManual?: boolean;
   robloxId?: number;
   username?: string;
   displayName?: string;
   description?: string;
   avatarUrl?: string;
+  avatarHeadshot?: string;
+  avatarHeadshotHd?: string;
+  avatarFull?: string;
+  avatar3d?: string;
   created?: string | null;
   accountAgeDays?: number;
   accountAge?: DiscordAge;
   profileUrl?: string;
   isBanned?: boolean;
+  hasVerifiedBadge?: boolean;
+  friendsCount?: number;
+  followersCount?: number;
+  followingCount?: number;
+  online?: number;
+  lastOnline?: string;
+  lastLocation?: string;
+  placeId?: number | null;
+  rootPlaceId?: number | null;
+  gameId?: string | null;
+  currentGame?: {
+    universeId: number;
+    name: string;
+    description: string;
+    thumbnail: string;
+    placeId: number;
+    rootPlaceId: number;
+  } | null;
+  robux?: number;
+  userStatus?: string;
+  games?: any[];
+  favoriteGames?: any[];
+  groups?: any[];
+  badges?: any[];
+  collectibles?: any[];
 }
 
 interface DiscordUserData {
@@ -87,6 +117,19 @@ function Field({ label, value, copy }: { label: string; value: string; copy?: st
       <div className="flex items-center gap-1 min-w-0">
         <span className="text-sm text-white font-mono truncate text-right">{value || "—"}</span>
         {copy && <CopyBtn text={copy} />}
+      </div>
+    </div>
+  );
+}
+
+function RobloxField({ label, value, copy }: { label: string; value: string | number; copy?: string | number }) {
+  const txt = copy !== undefined ? String(copy) : String(value);
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5 border-b border-purple-500/5 last:border-0">
+      <span className="text-[11px] text-gray-500 uppercase tracking-wider shrink-0">{label}</span>
+      <div className="flex items-center gap-1 min-w-0">
+        <span className="text-xs text-white font-mono truncate text-right">{String(value) || "—"}</span>
+        {txt && <CopyBtn text={txt} />}
       </div>
     </div>
   );
@@ -150,24 +193,47 @@ export default function DiscordFinderPage() {
         setLinkError(json.error || "Roblox user not found");
         return;
       }
-      saveManualLink(data.id, json.data.userId, json.data.username);
+      const d = json.data;
+      saveManualLink(data.id, d.userId, d.username);
       setManualLinkState(getManualLink(data.id));
       setLinkUsername("");
-      // Update the robloxAccount in displayed data
       setData((prev) => prev ? {
         ...prev,
         robloxAccount: {
           linked: true,
-          robloxId: json.data.userId,
-          username: json.data.username,
-          displayName: json.data.displayName,
-          description: json.data.description,
-          avatarUrl: json.data.avatarUrl,
-          created: json.data.created,
-          accountAgeDays: json.data.accountAgeDays,
-          accountAge: json.data.accountAge,
-          profileUrl: `https://www.roblox.com/users/${json.data.userId}/profile`,
-          isBanned: json.data.isBanned,
+          isManual: true,
+          robloxId: d.userId,
+          username: d.username,
+          displayName: d.displayName,
+          description: d.description,
+          avatarUrl: d.avatarHeadshotHd || d.avatarHeadshot || "",
+          avatarHeadshot: d.avatarHeadshot,
+          avatarHeadshotHd: d.avatarHeadshotHd,
+          avatarFull: d.avatarFull,
+          avatar3d: d.avatar3d,
+          created: d.created,
+          accountAgeDays: d.accountAgeDays,
+          accountAge: d.accountAge,
+          profileUrl: d.profileUrl,
+          isBanned: d.isBanned,
+          hasVerifiedBadge: d.hasVerifiedBadge,
+          friendsCount: d.friendsCount,
+          followersCount: d.followersCount,
+          followingCount: d.followingCount,
+          online: d.online,
+          lastOnline: d.lastOnline,
+          lastLocation: d.lastLocation,
+          placeId: d.placeId,
+          rootPlaceId: d.rootPlaceId,
+          gameId: d.gameId,
+          currentGame: d.currentGame,
+          robux: d.robux,
+          userStatus: d.userStatus,
+          games: d.games,
+          favoriteGames: d.favoriteGames,
+          groups: d.groups,
+          badges: d.badges,
+          collectibles: d.collectibles,
         },
       } : prev);
     } catch {
@@ -551,20 +617,37 @@ export default function DiscordFinderPage() {
 
                 {data.robloxAccount.linked && data.robloxAccount.robloxId ? (
                   <>
+                    {/* Profile Header */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                       {/* Roblox Avatar */}
-                      <div className="shrink-0 relative group">
-                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10">
-                          {data.robloxAccount.avatarUrl ? (
+                      <div className="flex flex-col items-center gap-2 shrink-0">
+                        <div className="w-28 h-28 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10 group relative">
+                          {data.robloxAccount.avatarHeadshotHd ? (
+                            <img src={data.robloxAccount.avatarHeadshotHd} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                          ) : data.robloxAccount.avatarHeadshot ? (
+                            <img src={data.robloxAccount.avatarHeadshot} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                          ) : data.robloxAccount.avatarUrl ? (
                             <img src={data.robloxAccount.avatarUrl} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl text-gray-600 bg-dark-600">
+                            <div className="w-full h-full flex items-center justify-center text-3xl text-gray-600 bg-dark-600">
                               {data.robloxAccount.username?.[0]?.toUpperCase() || "?"}
                             </div>
                           )}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+                            {data.robloxAccount.avatarHeadshotHd && <DownloadBtn url={data.robloxAccount.avatarHeadshotHd} filename={`roblox_avatar_${data.robloxAccount.robloxId}.png`} />}
+                          </div>
                         </div>
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
-                          {data.robloxAccount.avatarUrl && <DownloadBtn url={data.robloxAccount.avatarUrl} filename={`roblox_avatar_${data.robloxAccount.robloxId}.png`} />}
+                        <div className="flex gap-1.5">
+                          {data.robloxAccount.avatarFull && (
+                            <a href={data.robloxAccount.avatarFull} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden bg-dark-700 border border-purple-500/10 block hover:opacity-80 transition-opacity" title="Full body">
+                              <img src={data.robloxAccount.avatarFull} alt="full body" className="w-full h-full object-cover" />
+                            </a>
+                          )}
+                          {data.robloxAccount.avatar3d && (
+                            <a href={data.robloxAccount.avatar3d} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden bg-dark-700 border border-purple-500/10 block hover:opacity-80 transition-opacity" title="3D Avatar">
+                              <img src={data.robloxAccount.avatar3d} alt="3D" className="w-full h-full object-cover" />
+                            </a>
+                          )}
                         </div>
                       </div>
 
@@ -574,12 +657,24 @@ export default function DiscordFinderPage() {
                           <div>
                             <div className="flex items-center gap-2">
                               <h4 className="text-lg font-bold text-white">{data.robloxAccount.displayName || data.robloxAccount.username}</h4>
+                              {data.robloxAccount.hasVerifiedBadge && (
+                                <svg className="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z" /></svg>
+                              )}
                               {data.robloxAccount.isBanned && (
                                 <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-medium">Banned</span>
                               )}
+                              {data.robloxAccount.online !== undefined && (
+                                <span className={`flex items-center gap-1 text-xs ${data.robloxAccount.online === 1 || data.robloxAccount.online === 2 || data.robloxAccount.online === 3 ? "text-green-400" : "text-gray-500"}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${data.robloxAccount.online === 1 || data.robloxAccount.online === 2 || data.robloxAccount.online === 3 ? "bg-current animate-pulse" : "bg-current"}`} />
+                                  {data.robloxAccount.online === 1 ? "Online" : data.robloxAccount.online === 2 ? "In Game" : data.robloxAccount.online === 3 ? "In Studio" : "Offline"}
+                                </span>
+                              )}
                             </div>
                             <p className="text-sm text-gray-400 flex items-center gap-1">
-                              <span className="text-blue-400">@{data.robloxAccount.username}</span>
+                              <a href={data.robloxAccount.profileUrl} target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 transition-colors text-blue-400">
+                                @{data.robloxAccount.username}
+                              </a>
+                              <CopyBtn text={data.robloxAccount.username || ""} label="Copy username" />
                               <span className="text-gray-600">·</span>
                               <span className="font-mono text-xs">{data.robloxAccount.robloxId}</span>
                               <CopyBtn text={String(data.robloxAccount.robloxId)} label="Copy Roblox ID" />
@@ -608,20 +703,31 @@ export default function DiscordFinderPage() {
                           </div>
                         </div>
 
+                        {data.robloxAccount.userStatus && (
+                          <div className="mt-2 flex items-center gap-2 text-sm text-gray-400 italic px-3 py-1.5 rounded-lg bg-dark-700/50 border border-purple-500/5">
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                            <span className="truncate">"{data.robloxAccount.userStatus}"</span>
+                            <CopyBtn text={data.robloxAccount.userStatus} />
+                          </div>
+                        )}
+
                         {data.robloxAccount.description && (
                           <p className="text-xs text-gray-500 mt-2 line-clamp-2 italic">"{data.robloxAccount.description}"</p>
                         )}
 
-                        {/* Roblox Stats */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-purple-500/10">
+                        {/* Stats Row */}
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-3 pt-3 border-t border-purple-500/10">
                           {[
-                            { label: "User ID", value: String(data.robloxAccount.robloxId), copy: String(data.robloxAccount.robloxId) },
-                            { label: "Account Age", value: data.robloxAccount.accountAge ? `${data.robloxAccount.accountAge.years}y ${data.robloxAccount.accountAge.months}m` : "—", copy: String(data.robloxAccount.accountAgeDays || 0) },
-                            { label: "Created", value: data.robloxAccount.created ? new Date(data.robloxAccount.created).toLocaleDateString() : "—", copy: data.robloxAccount.created || "" },
+                            { label: "Friends", value: (data.robloxAccount.friendsCount ?? 0).toLocaleString(), copy: String(data.robloxAccount.friendsCount ?? 0) },
+                            { label: "Followers", value: (data.robloxAccount.followersCount ?? 0).toLocaleString(), copy: String(data.robloxAccount.followersCount ?? 0) },
+                            { label: "Following", value: (data.robloxAccount.followingCount ?? 0).toLocaleString(), copy: String(data.robloxAccount.followingCount ?? 0) },
+                            { label: "Robux", value: `${(data.robloxAccount.robux ?? 0).toLocaleString()} R$`, copy: String(data.robloxAccount.robux ?? 0) },
+                            { label: "Games", value: String(data.robloxAccount.games?.length ?? 0), copy: String(data.robloxAccount.games?.length ?? 0) },
+                            { label: "Account Age", value: `${data.robloxAccount.accountAgeDays ?? 0}d`, copy: String(data.robloxAccount.accountAgeDays ?? 0) },
                           ].map((s) => (
                             <div key={s.label} className="text-center p-1.5 rounded-lg bg-dark-700/30">
                               <div className="flex items-center justify-center gap-1">
-                                <p className="text-xs font-bold text-white font-mono truncate">{s.value}</p>
+                                <p className="text-xs font-bold text-white truncate">{s.value}</p>
                                 <CopyBtn text={s.copy} />
                               </div>
                               <p className="text-[9px] text-gray-500 uppercase tracking-wider">{s.label}</p>
@@ -630,6 +736,151 @@ export default function DiscordFinderPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Current Game */}
+                    {data.robloxAccount.online === 2 && data.robloxAccount.currentGame && (
+                      <div className="mt-4 pt-3 border-t border-purple-500/10">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Currently Playing</p>
+                        <div className="flex items-center gap-3 p-2 rounded-lg bg-dark-700/50">
+                          {data.robloxAccount.currentGame.thumbnail ? (
+                            <img src={data.robloxAccount.currentGame.thumbnail} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-white font-medium truncate">{data.robloxAccount.currentGame.name}</p>
+                            <p className="text-xs text-gray-500 truncate">{data.robloxAccount.lastLocation}</p>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0">
+                            <a href={`roblox://placeId=${data.robloxAccount.currentGame.placeId}`} target="_blank" rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-medium transition-all flex items-center gap-1">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                              Join
+                            </a>
+                            <a href={`https://www.roblox.com/games/start?placeId=${data.robloxAccount.currentGame.placeId}`} target="_blank" rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-dark-600 hover:bg-dark-500 text-white text-xs font-medium transition-all border border-purple-500/10" title="Open in browser">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                          </div>
+                        </div>
+                        {data.robloxAccount.gameId && (
+                          <div className="flex items-center justify-between gap-2 py-1.5 mt-1">
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wider shrink-0">Server ID</span>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-[10px] text-gray-400 font-mono truncate text-right">{data.robloxAccount.gameId}</span>
+                              <CopyBtn text={data.robloxAccount.gameId} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Detail Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-3 border-t border-purple-500/10">
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Account Details</p>
+                        <RobloxField label="Username" value={`@${data.robloxAccount.username}`} copy={data.robloxAccount.username || ""} />
+                        <RobloxField label="Display Name" value={data.robloxAccount.displayName || ""} />
+                        <RobloxField label="User ID" value={String(data.robloxAccount.robloxId)} copy={String(data.robloxAccount.robloxId || 0)} />
+                        <RobloxField label="Profile URL" value="Open →" copy={data.robloxAccount.profileUrl || ""} />
+                        <RobloxField label="Created" value={data.robloxAccount.created ? new Date(data.robloxAccount.created).toLocaleDateString() : "—"} copy={data.robloxAccount.created || ""} />
+                        <RobloxField label="Age" value={`${data.robloxAccount.accountAgeDays ?? 0} days (${((data.robloxAccount.accountAgeDays ?? 0) / 365).toFixed(1)} years)`} />
+                        <RobloxField label="Verified Badge" value={data.robloxAccount.hasVerifiedBadge ? "Yes" : "No"} />
+                        <RobloxField label="Banned" value={data.robloxAccount.isBanned ? "Yes" : "No"} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Presence & Economy</p>
+                        <RobloxField label="Status" value={data.robloxAccount.online === 1 ? "Online" : data.robloxAccount.online === 2 ? "In Game" : data.robloxAccount.online === 3 ? "In Studio" : "Offline"} />
+                        {data.robloxAccount.online !== 2 && data.robloxAccount.lastLocation && <RobloxField label="Last Location" value={data.robloxAccount.lastLocation} />}
+                        <RobloxField label="Last Online" value={data.robloxAccount.lastOnline ? new Date(data.robloxAccount.lastOnline).toLocaleString() : "—"} copy={data.robloxAccount.lastOnline || ""} />
+                        <RobloxField label="Robux" value={`${(data.robloxAccount.robux ?? 0).toLocaleString()} R$`} copy={String(data.robloxAccount.robux ?? 0)} />
+                        <RobloxField label="Friends" value={(data.robloxAccount.friendsCount ?? 0).toLocaleString()} copy={String(data.robloxAccount.friendsCount ?? 0)} />
+                        <RobloxField label="Followers" value={(data.robloxAccount.followersCount ?? 0).toLocaleString()} copy={String(data.robloxAccount.followersCount ?? 0)} />
+                        <RobloxField label="Following" value={(data.robloxAccount.followingCount ?? 0).toLocaleString()} copy={String(data.robloxAccount.followingCount ?? 0)} />
+                        <RobloxField label="User Status" value={data.robloxAccount.userStatus || "—"} copy={data.robloxAccount.userStatus || ""} />
+                      </div>
+                    </div>
+
+                    {/* Groups */}
+                    {data.robloxAccount.groups && data.robloxAccount.groups.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-purple-500/10">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Groups ({data.robloxAccount.groups.length})</p>
+                        <div className="flex flex-wrap gap-2">
+                          {data.robloxAccount.groups.slice(0, 10).map((group: any) => (
+                            <a key={group.id} href={`https://www.roblox.com/groups/${group.id}`} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-700/50 border border-purple-500/5 hover:bg-dark-700 transition-colors">
+                              {group.emblemUrl ? (
+                                <img src={group.emblemUrl} alt="" className="w-6 h-6 rounded object-cover bg-dark-600" />
+                              ) : (
+                                <div className="w-6 h-6 rounded bg-dark-600 flex items-center justify-center text-[10px]">👥</div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-[11px] text-white truncate max-w-28">{group.name}</p>
+                                <p className="text-[9px] text-purple-400">{group.role}</p>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Games */}
+                    {data.robloxAccount.games && data.robloxAccount.games.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-purple-500/10">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Games ({data.robloxAccount.games.length})</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {data.robloxAccount.games.slice(0, 6).map((game: any) => (
+                            <a key={game.id} href={game.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-2 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5">
+                              {game.image ? (
+                                <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
+                              ) : (
+                                <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs text-white truncate">{game.name}</p>
+                                <p className="text-[9px] text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Badges */}
+                    {data.robloxAccount.badges && data.robloxAccount.badges.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-purple-500/10">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Badges ({data.robloxAccount.badges.length})</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {data.robloxAccount.badges.slice(0, 15).map((badge: any) => (
+                            <div key={badge.id} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-dark-700 text-[10px] text-gray-300">
+                              {badge.imageUrl && <img src={badge.imageUrl} alt="" className="w-3.5 h-3.5 rounded" />}
+                              <span className="truncate max-w-24">{badge.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Collectibles */}
+                    {data.robloxAccount.collectibles && data.robloxAccount.collectibles.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-purple-500/10">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Collectibles ({data.robloxAccount.collectibles.length})</p>
+                        <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
+                          {data.robloxAccount.collectibles.slice(0, 10).map((item: any) => (
+                            <div key={item.assetId} className="p-1.5 rounded-lg bg-dark-700/50 border border-purple-500/5 text-center">
+                              {item.thumbnailUrl ? (
+                                <img src={item.thumbnailUrl} alt="" className="w-full aspect-square rounded object-cover bg-dark-600" />
+                              ) : (
+                                <div className="w-full aspect-square rounded bg-dark-600 flex items-center justify-center text-gray-600 text-[10px]">?</div>
+                              )}
+                              {item.name && <p className="text-[8px] text-gray-400 mt-0.5 truncate">{item.name}</p>}
+                              {item.recentAveragePrice && <p className="text-[8px] text-green-400">{item.recentAveragePrice.toLocaleString()} R$</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div>
