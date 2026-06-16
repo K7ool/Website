@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
 import GroupDetailModal from "@/components/GroupDetailModal";
+import GameDetailModal from "@/components/GameDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 
 interface RobloxUserData {
@@ -98,6 +100,7 @@ const ONLINE_LABELS: Record<number, { label: string; color: string }> = {
 };
 
 export default function RobloxFinderPage() {
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [data, setData] = useState<RobloxUserData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -106,11 +109,41 @@ export default function RobloxFinderPage() {
   const [copiedAll, setCopiedAll] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedGameUniverseId, setSelectedGameUniverseId] = useState<number | null>(null);
   const [groupsOwnedOnly, setGroupsOwnedOnly] = useState(false);
 
   useEffect(() => {
     setHistory(getHistory("roblox"));
   }, []);
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q) {
+      setQuery(q);
+      // Auto-search after a short delay to ensure state is set
+      setTimeout(() => {
+        setLoading(true);
+        setError("");
+        setData(null);
+        fetch("/api/roblox/find", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q }),
+        })
+          .then((res) => res.json())
+          .then((json) => {
+            if (!json.success) {
+              setError(json.error || "Failed to find user");
+            } else {
+              setData(json.data);
+              setHistory(addToHistory("roblox", q, json.data.displayName || json.data.username || q));
+            }
+          })
+          .catch(() => setError("Network error"))
+          .finally(() => setLoading(false));
+      }, 100);
+    }
+  }, [searchParams]);
 
   const search = async (searchQuery?: string) => {
     const q = searchQuery || query.trim();
@@ -453,21 +486,25 @@ export default function RobloxFinderPage() {
                   <GlassCard>
                     <h3 className="text-sm font-semibold text-white mb-3">Recent Games</h3>
                     <div className="space-y-2">
-                      {data.games.slice(0, 5).map((game: any) => (
-                        <a key={game.id} href={game.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors"
-                        >
-                          {game.image ? (
-                            <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
-                          ) : (
-                            <div className="w-10 h-10 rounded bg-dark-700 flex items-center justify-center text-gray-600">🎮</div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white truncate">{game.name}</p>
-                            <p className="text-[10px] text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
-                          </div>
-                        </a>
-                      ))}
+                      {data.games.slice(0, 5).map((game: any) => {
+                        const universeId = game.universeId || game.id;
+                        return (
+                          <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04] transition-colors w-full text-left"
+                          >
+                            {game.image ? (
+                              <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-700" />
+                            ) : (
+                              <div className="w-10 h-10 rounded bg-dark-700 flex items-center justify-center text-gray-600">🎮</div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-white truncate">{game.name}</p>
+                              <p className="text-[10px] text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
+                            </div>
+                            <svg className="w-4 h-4 text-gray-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        );
+                      })}
                     </div>
                     {data.games.length > 5 && (
                       <button onClick={() => setTab("games")} className="mt-2 text-xs text-purple-400 hover:text-purple-300 transition-colors">
@@ -572,19 +609,22 @@ export default function RobloxFinderPage() {
                   <p className="text-sm text-gray-500">No public games found.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.games.map((game: any) => (
-                      <a key={game.id} href={game.url} target="_blank" rel="noopener noreferrer"
-                        className="block p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 group"
-                      >
-                        {game.image && <img src={game.image} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="text-sm text-white font-medium truncate">{game.name}</p>
-                          <CopyBtn text={game.name} />
-                        </div>
-                        <p className="text-xs text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
-                        {game.playing && <p className="text-xs text-green-400">{game.playing} playing now</p>}
-                      </a>
-                    ))}
+                    {data.games.map((game: any) => {
+                      const universeId = game.universeId || game.id;
+                      return (
+                        <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
+                          className="block p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 group text-left w-full"
+                        >
+                          {game.image && <img src={game.image} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="text-sm text-white font-medium truncate">{game.name}</p>
+                            <CopyBtn text={game.name} />
+                          </div>
+                          <p className="text-xs text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
+                          {game.playing && <p className="text-xs text-green-400">{game.playing} playing now</p>}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </GlassCard>
@@ -600,18 +640,21 @@ export default function RobloxFinderPage() {
                   <p className="text-sm text-gray-500">No favorite games found.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.favoriteGames.map((game: any) => (
-                      <a key={game.id} href={game.url} target="_blank" rel="noopener noreferrer"
-                        className="block p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5"
-                      >
-                        {game.image && <img src={game.image} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="text-sm text-white font-medium truncate">{game.name}</p>
-                          <CopyBtn text={game.name} />
-                        </div>
-                        <p className="text-xs text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
-                      </a>
-                    ))}
+                    {data.favoriteGames.map((game: any) => {
+                      const universeId = game.universeId || game.id;
+                      return (
+                        <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
+                          className="block p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full"
+                        >
+                          {game.image && <img src={game.image} alt="" className="w-full aspect-video rounded object-cover bg-dark-600 mb-2" />}
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="text-sm text-white font-medium truncate">{game.name}</p>
+                            <CopyBtn text={game.name} />
+                          </div>
+                          <p className="text-xs text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </GlassCard>
@@ -737,7 +780,11 @@ export default function RobloxFinderPage() {
       </AnimatePresence>
 
       {selectedGroupId && (
-        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} />
+        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} onMemberClick={(userId) => { setSelectedGroupId(null); setQuery(String(userId)); setTimeout(() => search(String(userId)), 100); }} />
+      )}
+
+      {selectedGameUniverseId && (
+        <GameDetailModal universeId={selectedGameUniverseId} onClose={() => setSelectedGameUniverseId(null)} />
       )}
     </div>
   );

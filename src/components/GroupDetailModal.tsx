@@ -80,7 +80,7 @@ function Field({ label, value, copy }: { label: string; value: string | number; 
 
 type Tab = "info" | "roles" | "members";
 
-export default function GroupDetailModal({ groupId, onClose }: { groupId: number; onClose: () => void }) {
+export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { groupId: number; onClose: () => void; onMemberClick?: (userId: number, username: string) => void }) {
   const [data, setData] = useState<GroupDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -291,13 +291,13 @@ export default function GroupDetailModal({ groupId, onClose }: { groupId: number
                       <p className="text-sm text-gray-500 text-center py-4">No members loaded</p>
                     ) : (
                       data.members.map((member) => (
-                        <div key={member.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.03] transition-colors">
-                          <div className="w-8 h-8 rounded-full bg-dark-600 overflow-hidden shrink-0">
+                        <div key={member.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group">
+                          <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
                             <img
-                              src={`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${member.userId}&size=150x150&format=Png`}
+                              src={`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${member.userId}&size=150x150&format=Png&isCircular=true`}
                               alt=""
                               className="w-full h-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.displayName)}&background=6366f1&color=fff&size=150`; }}
                             />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -319,6 +319,15 @@ export default function GroupDetailModal({ groupId, onClose }: { groupId: number
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[10px] font-medium">{member.role}</span>
                             <span className="text-[10px] text-gray-600 font-mono w-8 text-right">#{member.rank}</span>
+                            {onMemberClick && (
+                              <button
+                                onClick={() => onMemberClick(member.userId, member.username)}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 transition-all"
+                                title="Search in Roblox Finder"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))

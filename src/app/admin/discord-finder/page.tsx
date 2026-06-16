@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
 import GroupDetailModal from "@/components/GroupDetailModal";
+import GameDetailModal from "@/components/GameDetailModal";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
 import { getManualLink, setManualLink as saveManualLink, removeManualLink, type ManualRobloxLink } from "@/lib/manual-roblox-links";
 
@@ -157,6 +159,7 @@ function DownloadBtn({ url, filename }: { url: string; filename: string }) {
 }
 
 export default function DiscordFinderPage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [data, setData] = useState<DiscordUserData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -168,6 +171,7 @@ export default function DiscordFinderPage() {
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [selectedGameUniverseId, setSelectedGameUniverseId] = useState<number | null>(null);
   const [groupsOwnedOnly, setGroupsOwnedOnly] = useState(false);
 
   useEffect(() => {
@@ -910,20 +914,23 @@ export default function DiscordFinderPage() {
                       <div className="mt-4 pt-3 border-t border-purple-500/10">
                         <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Games ({data.robloxAccount.games.length})</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {data.robloxAccount.games.slice(0, 6).map((game: any) => (
-                            <a key={game.id} href={game.url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-2 p-2 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5">
-                              {game.image ? (
-                                <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
-                              ) : (
-                                <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs text-white truncate">{game.name}</p>
-                                <p className="text-[9px] text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
-                              </div>
-                            </a>
-                          ))}
+                          {data.robloxAccount.games.slice(0, 6).map((game: any) => {
+                            const universeId = game.universeId || game.id;
+                            return (
+                              <button key={game.id} onClick={() => setSelectedGameUniverseId(universeId)}
+                                className="flex items-center gap-2 p-2 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors border border-purple-500/5 text-left w-full">
+                                {game.image ? (
+                                  <img src={game.image} alt="" className="w-10 h-10 rounded object-cover bg-dark-600" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-dark-600 flex items-center justify-center text-gray-600">🎮</div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs text-white truncate">{game.name}</p>
+                                  <p className="text-[9px] text-gray-500">{game.visits?.toLocaleString() || 0} visits</p>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1003,7 +1010,11 @@ export default function DiscordFinderPage() {
       </AnimatePresence>
 
       {selectedGroupId && (
-        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} />
+        <GroupDetailModal groupId={selectedGroupId} onClose={() => setSelectedGroupId(null)} onMemberClick={(userId, username) => { setSelectedGroupId(null); router.push(`/admin/roblox-finder?search=${userId}`); }} />
+      )}
+
+      {selectedGameUniverseId && (
+        <GameDetailModal universeId={selectedGameUniverseId} onClose={() => setSelectedGameUniverseId(null)} />
       )}
     </div>
   );
