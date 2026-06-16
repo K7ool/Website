@@ -269,7 +269,7 @@ export default function GameDetailModal({ universeId, onClose }: { universeId: n
                           <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center text-sm text-gray-400 overflow-hidden">
                             {data.creator.type === "User" ? (
                               <img
-                                src={`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${data.creator.id}&size=150x150&format=Png&isCircular=true`}
+                                src={`/api/roblox/avatar?userId=${data.creator.id}&circle=1`}
                                 alt=""
                                 className="w-full h-full object-cover"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}

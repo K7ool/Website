@@ -204,7 +204,7 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-dark-600 flex items-center justify-center text-sm text-gray-400 overflow-hidden">
                             <img
-                              src={`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${data.owner.userId}&size=150x150&format=Png`}
+                              src={`/api/roblox/avatar?userId=${data.owner.userId}&circle=1`}
                               alt=""
                               className="w-full h-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -294,7 +294,7 @@ export default function GroupDetailModal({ groupId, onClose, onMemberClick }: { 
                         <div key={member.userId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group">
                           <div className="w-9 h-9 rounded-full bg-dark-600 overflow-hidden shrink-0 border border-purple-500/10">
                             <img
-                              src={`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${member.userId}&size=150x150&format=Png&isCircular=true`}
+                              src={`/api/roblox/avatar?userId=${member.userId}&circle=1`}
                               alt=""
                               className="w-full h-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.displayName)}&background=6366f1&color=fff&size=150`; }}
