@@ -12,14 +12,22 @@ async function fetchJson(url: string, opts?: RequestInit) {
   return res.json();
 }
 
-async function batchFetchUsernames(ids: number[]): Promise<Record<number, { name: string; displayName: string }>> {
+async function fetchUserBatch(ids: number[]): Promise<Record<number, { name: string; displayName: string }>> {
   const map: Record<number, { name: string; displayName: string }> = {};
-  for (let i = 0; i < ids.length; i += 50) {
-    const batch = ids.slice(i, i + 50);
-    const data = await fetchJson(`https://users.roblox.com/v1/users?userIds=${batch.join(",")}&excludeBannedUsers=false`);
-    if (data?.data) {
-      for (const u of data.data) {
-        map[u.id] = { name: u.name || "", displayName: u.displayName || "" };
+  const CONCURRENCY = 20;
+  for (let i = 0; i < ids.length; i += CONCURRENCY) {
+    const batch = ids.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map((id) =>
+        fetchJson(`https://users.roblox.com/v1/users/${id}`).then((d) => ({ id, d }))
+      )
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.d?.name) {
+        map[r.value.id] = {
+          name: r.value.d.name,
+          displayName: r.value.d.displayName || r.value.d.name,
+        };
       }
     }
   }
@@ -36,7 +44,7 @@ async function batchFetchPresence(ids: number[]): Promise<Record<number, number>
     });
     if (data?.userPresences) {
       for (const p of data.userPresences) {
-        map[p.userPresenceType !== undefined ? p.userId : p.userId] = p.userPresenceType ?? 0;
+        map[p.userId] = p.userPresenceType ?? 0;
       }
     }
   }
@@ -73,27 +81,62 @@ export async function GET(req: NextRequest) {
     }
 
     const rawUsers = data.data || [];
-    const userIds: number[] = rawUsers.map((u: any) => u.id || u.userId || u.UserId).filter(Boolean);
 
-    const [usernameMap, presenceMap] = await Promise.all([
-      batchFetchUsernames(userIds),
-      type === "friends" ? batchFetchPresence(userIds) : Promise.resolve({}),
-    ]);
+    if (rawUsers.length > 0) {
+      console.log("[SOCIAL DEBUG] First raw item keys:", Object.keys(rawUsers[0]));
+      console.log("[SOCIAL DEBUG] First raw item:", JSON.stringify(rawUsers[0]));
+    }
 
-    const users = rawUsers.map((u: any) => {
-      const id = u.id || u.userId || u.UserId;
-      const name = u.name || u.username || u.userName || usernameMap[id]?.name || "";
-      const displayName = u.displayName || u.DisplayName || usernameMap[id]?.displayName || name || `User ${id}`;
-      const presenceType = u.presenceType ?? (presenceMap as Record<number, number>)[id] ?? 0;
-      return {
-        userId: id,
-        username: name,
-        displayName,
-        hasVerifiedBadge: u.hasVerifiedBadge || u.HasVerifiedBadge || false,
-        isOnline: presenceType > 0,
-        presenceType,
-      };
-    });
+    const users = rawUsers.map((u: any) => ({
+      userId: u.id || u.userId || u.UserId,
+      username: u.name || u.username || u.userName || "",
+      displayName: u.displayName || u.DisplayName || "",
+      hasVerifiedBadge: u.hasVerifiedBadge || u.HasVerifiedBadge || false,
+      presenceType: u.presenceType ?? u.PresenceType ?? -1,
+    }));
+
+    const missingNameIds = users
+      .filter((u: any) => !u.username && !u.displayName)
+      .map((u: any) => u.userId)
+      .filter(Boolean);
+
+    if (missingNameIds.length > 0) {
+      console.log(`[SOCIAL DEBUG] Fetching ${missingNameIds.length} missing usernames individually`);
+      const nameMap = await fetchUserBatch(missingNameIds);
+      console.log(`[SOCIAL DEBUG] Got ${Object.keys(nameMap).length} usernames back`);
+      if (Object.keys(nameMap).length > 0) {
+        const firstKey = Object.keys(nameMap)[0];
+        console.log(`[SOCIAL DEBUG] Sample: ${firstKey} ->`, JSON.stringify(nameMap[Number(firstKey)]));
+      }
+      for (const u of users) {
+        if (!u.username && !u.displayName && nameMap[u.userId]) {
+          u.username = nameMap[u.userId].name;
+          u.displayName = nameMap[u.userId].displayName;
+        }
+        if (!u.displayName && u.username) u.displayName = u.username;
+        if (!u.username && u.displayName) u.username = u.displayName;
+      }
+    }
+
+    const missingPresenceIds = users
+      .filter((u: any) => u.presenceType === -1)
+      .map((u: any) => u.userId)
+      .filter(Boolean);
+
+    if (missingPresenceIds.length > 0 && type === "friends") {
+      const presMap = await batchFetchPresence(missingPresenceIds);
+      for (const u of users) {
+        if (u.presenceType === -1) {
+          u.presenceType = presMap[u.userId] ?? 0;
+        }
+      }
+    }
+
+    for (const u of users) {
+      if (u.presenceType === -1) u.presenceType = 0;
+      if (!u.displayName) u.displayName = `User ${u.userId}`;
+      if (!u.username) u.username = u.displayName.toLowerCase().replace(/\s+/g, "_");
+    }
 
     const thumbIds = users.map((u: any) => u.userId).filter(Boolean);
     let thumbMap: Record<number, string> = {};
@@ -124,7 +167,7 @@ export async function GET(req: NextRequest) {
         totalCount: data.total || users.length,
       },
     });
-  } catch (e) {
-    return NextResponse.json({ success: false, error: "Lookup failed" }, { status: 500 });
+  } catch (e: any) {
+    return NextResponse.json({ success: false, error: e?.message || "Lookup failed" }, { status: 500 });
   }
 }
