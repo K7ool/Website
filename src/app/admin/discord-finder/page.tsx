@@ -269,8 +269,65 @@ export default function DiscordFinderPage() {
       if (!json.success) {
         setError(json.error || "Failed to find user");
       } else {
-        setData(json.data);
-        setHistory(addToHistory("discord", q, json.data.globalName || json.data.username || q));
+        const userData = json.data;
+        setData(userData);
+        setHistory(addToHistory("discord", q, userData.globalName || userData.username || q));
+
+        // Check for manual Roblox link and fetch full data if needed
+        const link = getManualLink(userData.id);
+        setManualLinkState(link);
+        if (link && link.robloxId && (!userData.robloxAccount?.linked || !userData.robloxAccount?.robloxId)) {
+          try {
+            const robloxRes = await fetch("/api/roblox/find", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: String(link.robloxId) }),
+            });
+            const robloxJson = await robloxRes.json();
+            if (robloxJson.success && robloxJson.data) {
+              const d = robloxJson.data;
+              setData((prev) => prev ? {
+                ...prev,
+                robloxAccount: {
+                  linked: true,
+                  isManual: true,
+                  robloxId: d.userId,
+                  username: d.username,
+                  displayName: d.displayName,
+                  description: d.description,
+                  avatarUrl: d.avatarHeadshotHd || d.avatarHeadshot || "",
+                  avatarHeadshot: d.avatarHeadshot,
+                  avatarHeadshotHd: d.avatarHeadshotHd,
+                  avatarFull: d.avatarFull,
+                  avatar3d: d.avatar3d,
+                  created: d.created,
+                  accountAgeDays: d.accountAgeDays,
+                  accountAge: d.accountAge,
+                  profileUrl: d.profileUrl,
+                  isBanned: d.isBanned,
+                  hasVerifiedBadge: d.hasVerifiedBadge,
+                  friendsCount: d.friendsCount,
+                  followersCount: d.followersCount,
+                  followingCount: d.followingCount,
+                  online: d.online,
+                  lastOnline: d.lastOnline,
+                  lastLocation: d.lastLocation,
+                  placeId: d.placeId,
+                  rootPlaceId: d.rootPlaceId,
+                  gameId: d.gameId,
+                  currentGame: d.currentGame,
+                  robux: d.robux,
+                  userStatus: d.userStatus,
+                  games: d.games,
+                  favoriteGames: d.favoriteGames,
+                  groups: d.groups,
+                  badges: d.badges,
+                  collectibles: d.collectibles,
+                },
+              } : prev);
+            }
+          } catch {}
+        }
       }
     } catch {
       setError("Network error");
