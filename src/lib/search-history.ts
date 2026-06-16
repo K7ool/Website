@@ -4,6 +4,7 @@ export interface SearchHistoryEntry {
   query: string;
   label?: string;
   timestamp: number;
+  meta?: Record<string, any>;
 }
 
 function getStorageKey(type: string): string {
@@ -20,9 +21,9 @@ export function getHistory(type: string): SearchHistoryEntry[] {
   }
 }
 
-export function addToHistory(type: string, query: string, label?: string): SearchHistoryEntry[] {
+export function addToHistory(type: string, query: string, label?: string, meta?: Record<string, any>): SearchHistoryEntry[] {
   const history = getHistory(type).filter((e) => e.query !== query);
-  history.unshift({ query, label, timestamp: Date.now() });
+  history.unshift({ query, label, timestamp: Date.now(), meta });
   const trimmed = history.slice(0, MAX_HISTORY);
   localStorage.setItem(getStorageKey(type), JSON.stringify(trimmed));
   return trimmed;

@@ -7,7 +7,7 @@ const ROBLOX_HEADERS = {
 };
 
 async function fetchJson(url: string, opts?: RequestInit) {
-  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(5000) });
+  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) return null;
   return res.json();
 }
@@ -31,16 +31,21 @@ async function getUniverseInfo(placeId: number) {
 }
 
 async function resolveUser(query: string): Promise<{ id: number; name: string } | null> {
-  if (/^\d+$/.test(query)) {
-    const profile = await fetchJson(`https://users.roblox.com/v1/users/${query}`);
-    if (profile?.id) return { id: profile.id, name: profile.name };
-    return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (/^\d+$/.test(query)) {
+        const profile = await fetchJson(`https://users.roblox.com/v1/users/${query}`);
+        if (profile?.id) return { id: profile.id, name: profile.name };
+      } else {
+        const data = await fetchJson("https://users.roblox.com/v1/usernames/users", {
+          method: "POST",
+          body: JSON.stringify({ usernames: [query], excludeBannedUsers: true }),
+        });
+        if (data?.data?.length) return { id: data.data[0].id, name: data.data[0].name };
+      }
+    } catch {}
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 1000));
   }
-  const data = await fetchJson("https://users.roblox.com/v1/usernames/users", {
-    method: "POST",
-    body: JSON.stringify({ usernames: [query], excludeBannedUsers: true }),
-  });
-  if (data?.data?.length) return { id: data.data[0].id, name: data.data[0].name };
   return null;
 }
 

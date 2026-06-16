@@ -7,14 +7,14 @@ const ROBLOX_HEADERS = {
 };
 
 async function fetchJson(url: string, opts?: RequestInit) {
-  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(10000) });
+  const res = await fetch(url, { ...opts, headers: { ...ROBLOX_HEADERS, ...opts?.headers }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) return null;
   return res.json();
 }
 
 async function fetchUserBatch(ids: number[]): Promise<Record<number, { name: string; displayName: string }>> {
   const map: Record<number, { name: string; displayName: string }> = {};
-  const CONCURRENCY = 20;
+  const CONCURRENCY = 50;
   for (let i = 0; i < ids.length; i += CONCURRENCY) {
     const batch = ids.slice(i, i + CONCURRENCY);
     const results = await Promise.allSettled(

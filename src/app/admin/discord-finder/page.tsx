@@ -216,45 +216,45 @@ export default function DiscordFinderPage() {
       saveManualLink(data.id, d.userId, d.username);
       setManualLinkState(getManualLink(data.id));
       setLinkUsername("");
-      setData((prev) => prev ? {
-        ...prev,
-        robloxAccount: {
-          linked: true,
-          isManual: true,
-          robloxId: d.userId,
-          username: d.username,
-          displayName: d.displayName,
-          description: d.description,
-          avatarUrl: d.avatarHeadshotHd || d.avatarHeadshot || "",
-          avatarHeadshot: d.avatarHeadshot,
-          avatarHeadshotHd: d.avatarHeadshotHd,
-          avatarFull: d.avatarFull,
-          avatar3d: d.avatar3d,
-          created: d.created,
-          accountAgeDays: d.accountAgeDays,
-          accountAge: d.accountAge,
-          profileUrl: d.profileUrl,
-          isBanned: d.isBanned,
-          hasVerifiedBadge: d.hasVerifiedBadge,
-          friendsCount: d.friendsCount,
-          followersCount: d.followersCount,
-          followingCount: d.followingCount,
-          online: d.online,
-          lastOnline: d.lastOnline,
-          lastLocation: d.lastLocation,
-          placeId: d.placeId,
-          rootPlaceId: d.rootPlaceId,
-          gameId: d.gameId,
-          currentGame: d.currentGame,
-          robux: d.robux,
-          userStatus: d.userStatus,
-          games: d.games,
-          favoriteGames: d.favoriteGames,
-          groups: d.groups,
-          badges: d.badges,
-          collectibles: d.collectibles,
-        },
-      } : prev);
+              setData((prev) => prev ? {
+                ...prev,
+                robloxAccount: {
+                  linked: true,
+                  isManual: true,
+                  robloxId: d.userId,
+                  username: d.username,
+                  displayName: d.displayName,
+                  description: d.description,
+                  avatarUrl: d.avatarHeadshotHd || d.avatarHeadshot || "",
+                  avatarHeadshot: d.avatarHeadshot,
+                  avatarHeadshotHd: d.avatarHeadshotHd,
+                  avatarFull: d.avatarFull,
+                  avatar3d: d.avatar3d,
+                  created: d.created,
+                  accountAgeDays: d.accountAgeDays,
+                  accountAge: d.accountAge,
+                  profileUrl: d.profileUrl,
+                  isBanned: d.isBanned,
+                  hasVerifiedBadge: d.hasVerifiedBadge,
+                  friendsCount: d.friendsCount,
+                  followersCount: d.followersCount,
+                  followingCount: d.followingCount,
+                  online: d.online,
+                  lastOnline: d.lastOnline,
+                  lastLocation: d.lastLocation,
+                  placeId: d.placeId,
+                  rootPlaceId: d.rootPlaceId,
+                  gameId: d.gameId,
+                  currentGame: d.currentGame,
+                  robux: d.robux,
+                  userStatus: d.userStatus,
+                  games: d.games,
+                  favoriteGames: d.favoriteGames,
+                  groups: d.groups,
+                  badges: d.badges,
+                  collectibles: d.collectibles,
+                },
+              } : prev);
     } catch {
       setLinkError("Failed to look up Roblox user");
     } finally {
@@ -290,7 +290,12 @@ export default function DiscordFinderPage() {
       } else {
         const userData = json.data;
         setData(userData);
-        setHistory(addToHistory("discord", q, userData.globalName || userData.username || q));
+        const robloxInfo = userData.robloxAccount?.linked ? {
+          robloxUsername: userData.robloxAccount.username,
+          robloxId: userData.robloxAccount.robloxId,
+          robloxDisplayName: userData.robloxAccount.displayName,
+        } : undefined;
+        setHistory(addToHistory("discord", q, userData.globalName || userData.username || q, robloxInfo));
 
         // Check for manual Roblox link and fetch full data if needed
         const link = getManualLink(userData.id);
@@ -432,6 +437,12 @@ export default function DiscordFinderPage() {
                 >
                   {entry.label || entry.query}
                 </button>
+                {entry.meta?.robloxUsername && (
+                  <span className="flex items-center gap-0.5 text-[9px] text-green-400/80 shrink-0" title={`Linked: @${entry.meta.robloxUsername}`}>
+                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zm7 2l4 4-4 4V9h-4v4l-4-4 4-4v4h4V5z" /></svg>
+                    {entry.meta.robloxUsername}
+                  </span>
+                )}
                 <button onClick={() => removeHistory(entry.query)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
