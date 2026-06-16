@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
 import { getHistory, addToHistory, removeFromHistory, clearHistory, type SearchHistoryEntry } from "@/lib/search-history";
+import { getManualLink, setManualLink as saveManualLink, removeManualLink, type ManualRobloxLink } from "@/lib/manual-roblox-links";
 
 interface DiscordBadge {
   name: string;
@@ -118,10 +119,73 @@ export default function DiscordFinderPage() {
   const [error, setError] = useState("");
   const [copiedAll, setCopiedAll] = useState(false);
   const [history, setHistory] = useState<SearchHistoryEntry[]>([]);
+  const [manualLink, setManualLinkState] = useState<ManualRobloxLink | null>(null);
+  const [linkUsername, setLinkUsername] = useState("");
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   useEffect(() => {
     setHistory(getHistory("discord"));
   }, []);
+
+  useEffect(() => {
+    if (data?.id) {
+      setManualLinkState(getManualLink(data.id));
+    }
+  }, [data?.id]);
+
+  const linkRobloxAccount = async () => {
+    const username = linkUsername.trim();
+    if (!username || !data?.id) return;
+    setLinking(true);
+    setLinkError("");
+    try {
+      const res = await fetch("/api/roblox/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: username }),
+      });
+      const json = await res.json();
+      if (!json.success || !json.data) {
+        setLinkError(json.error || "Roblox user not found");
+        return;
+      }
+      saveManualLink(data.id, json.data.userId, json.data.username);
+      setManualLinkState(getManualLink(data.id));
+      setLinkUsername("");
+      // Update the robloxAccount in displayed data
+      setData((prev) => prev ? {
+        ...prev,
+        robloxAccount: {
+          linked: true,
+          robloxId: json.data.userId,
+          username: json.data.username,
+          displayName: json.data.displayName,
+          description: json.data.description,
+          avatarUrl: json.data.avatarUrl,
+          created: json.data.created,
+          accountAgeDays: json.data.accountAgeDays,
+          accountAge: json.data.accountAge,
+          profileUrl: `https://www.roblox.com/users/${json.data.userId}/profile`,
+          isBanned: json.data.isBanned,
+        },
+      } : prev);
+    } catch {
+      setLinkError("Failed to look up Roblox user");
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const unlinkRobloxAccount = () => {
+    if (!data?.id) return;
+    removeManualLink(data.id);
+    setManualLinkState(null);
+    setData((prev) => prev ? {
+      ...prev,
+      robloxAccount: { linked: false },
+    } : prev);
+  };
 
   const search = async (searchQuery?: string) => {
     const q = searchQuery || query.trim();
@@ -480,83 +544,124 @@ export default function DiscordFinderPage() {
                   ) : (
                     <span className="px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-400 text-[10px] font-medium border border-gray-500/20">Not Linked</span>
                   )}
+                  {data.robloxAccount.linked && manualLink && (
+                    <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-medium border border-blue-500/20">Manual</span>
+                  )}
                 </div>
 
                 {data.robloxAccount.linked && data.robloxAccount.robloxId ? (
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                    {/* Roblox Avatar */}
-                    <div className="shrink-0 relative group">
-                      <div className="w-24 h-24 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10">
-                        {data.robloxAccount.avatarUrl ? (
-                          <img src={data.robloxAccount.avatarUrl} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl text-gray-600 bg-dark-600">
-                            {data.robloxAccount.username?.[0]?.toUpperCase() || "?"}
-                          </div>
-                        )}
-                      </div>
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
-                        {data.robloxAccount.avatarUrl && <DownloadBtn url={data.robloxAccount.avatarUrl} filename={`roblox_avatar_${data.robloxAccount.robloxId}.png`} />}
-                      </div>
-                    </div>
-
-                    {/* Roblox Info */}
-                    <div className="flex-1 min-w-0 w-full">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-lg font-bold text-white">{data.robloxAccount.displayName || data.robloxAccount.username}</h4>
-                            {data.robloxAccount.isBanned && (
-                              <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-medium">Banned</span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-400 flex items-center gap-1">
-                            <span className="text-blue-400">@{data.robloxAccount.username}</span>
-                            <span className="text-gray-600">·</span>
-                            <span className="font-mono text-xs">{data.robloxAccount.robloxId}</span>
-                            <CopyBtn text={String(data.robloxAccount.robloxId)} label="Copy Roblox ID" />
-                          </p>
-                        </div>
-                        <a
-                          href={data.robloxAccount.profileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs text-white font-medium transition-all"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                          Profile
-                        </a>
-                      </div>
-
-                      {data.robloxAccount.description && (
-                        <p className="text-xs text-gray-500 mt-2 line-clamp-2 italic">"{data.robloxAccount.description}"</p>
-                      )}
-
-                      {/* Roblox Stats */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-purple-500/10">
-                        {[
-                          { label: "User ID", value: String(data.robloxAccount.robloxId), copy: String(data.robloxAccount.robloxId) },
-                          { label: "Account Age", value: data.robloxAccount.accountAge ? `${data.robloxAccount.accountAge.years}y ${data.robloxAccount.accountAge.months}m` : "—", copy: String(data.robloxAccount.accountAgeDays || 0) },
-                          { label: "Created", value: data.robloxAccount.created ? new Date(data.robloxAccount.created).toLocaleDateString() : "—", copy: data.robloxAccount.created || "" },
-                        ].map((s) => (
-                          <div key={s.label} className="text-center p-1.5 rounded-lg bg-dark-700/30">
-                            <div className="flex items-center justify-center gap-1">
-                              <p className="text-xs font-bold text-white font-mono truncate">{s.value}</p>
-                              <CopyBtn text={s.copy} />
+                  <>
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                      {/* Roblox Avatar */}
+                      <div className="shrink-0 relative group">
+                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-dark-700 border border-purple-500/10">
+                          {data.robloxAccount.avatarUrl ? (
+                            <img src={data.robloxAccount.avatarUrl} alt={data.robloxAccount.username} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl text-gray-600 bg-dark-600">
+                              {data.robloxAccount.username?.[0]?.toUpperCase() || "?"}
                             </div>
-                            <p className="text-[9px] text-gray-500 uppercase tracking-wider">{s.label}</p>
+                          )}
+                        </div>
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center">
+                          {data.robloxAccount.avatarUrl && <DownloadBtn url={data.robloxAccount.avatarUrl} filename={`roblox_avatar_${data.robloxAccount.robloxId}.png`} />}
+                        </div>
+                      </div>
+
+                      {/* Roblox Info */}
+                      <div className="flex-1 min-w-0 w-full">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-lg font-bold text-white">{data.robloxAccount.displayName || data.robloxAccount.username}</h4>
+                              {data.robloxAccount.isBanned && (
+                                <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-medium">Banned</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-400 flex items-center gap-1">
+                              <span className="text-blue-400">@{data.robloxAccount.username}</span>
+                              <span className="text-gray-600">·</span>
+                              <span className="font-mono text-xs">{data.robloxAccount.robloxId}</span>
+                              <CopyBtn text={String(data.robloxAccount.robloxId)} label="Copy Roblox ID" />
+                            </p>
                           </div>
-                        ))}
+                          <div className="flex items-center gap-2">
+                            {manualLink && (
+                              <button
+                                onClick={unlinkRobloxAccount}
+                                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-xs text-red-400 font-medium transition-all border border-red-500/20"
+                                title="Remove manual link"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                                Unlink
+                              </button>
+                            )}
+                            <a
+                              href={data.robloxAccount.profileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs text-white font-medium transition-all"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                              Profile
+                            </a>
+                          </div>
+                        </div>
+
+                        {data.robloxAccount.description && (
+                          <p className="text-xs text-gray-500 mt-2 line-clamp-2 italic">"{data.robloxAccount.description}"</p>
+                        )}
+
+                        {/* Roblox Stats */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-purple-500/10">
+                          {[
+                            { label: "User ID", value: String(data.robloxAccount.robloxId), copy: String(data.robloxAccount.robloxId) },
+                            { label: "Account Age", value: data.robloxAccount.accountAge ? `${data.robloxAccount.accountAge.years}y ${data.robloxAccount.accountAge.months}m` : "—", copy: String(data.robloxAccount.accountAgeDays || 0) },
+                            { label: "Created", value: data.robloxAccount.created ? new Date(data.robloxAccount.created).toLocaleDateString() : "—", copy: data.robloxAccount.created || "" },
+                          ].map((s) => (
+                            <div key={s.label} className="text-center p-1.5 rounded-lg bg-dark-700/30">
+                              <div className="flex items-center justify-center gap-1">
+                                <p className="text-xs font-bold text-white font-mono truncate">{s.value}</p>
+                                <CopyBtn text={s.copy} />
+                              </div>
+                              <p className="text-[9px] text-gray-500 uppercase tracking-wider">{s.label}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </>
                 ) : (
-                  <div className="flex items-center gap-3 py-4 text-gray-500">
-                    <svg className="w-8 h-8 shrink-0 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                    <div>
-                      <p className="text-sm text-gray-400">No Roblox account linked</p>
-                      <p className="text-xs text-gray-600">This user hasn't verified with Bloxlink in your server</p>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-3">Link a Roblox account manually by entering a username:</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={linkUsername}
+                        onChange={(e) => { setLinkUsername(e.target.value); setLinkError(""); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") linkRobloxAccount(); }}
+                        placeholder="Enter Roblox username..."
+                        className="flex-1 px-3 py-2 rounded-lg bg-dark-700 border border-purple-500/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/30"
+                        disabled={linking}
+                      />
+                      <button
+                        onClick={linkRobloxAccount}
+                        disabled={linking || !linkUsername.trim()}
+                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium transition-all"
+                      >
+                        {linking ? (
+                          <span className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Linking
+                          </span>
+                        ) : (
+                          "Link"
+                        )}
+                      </button>
                     </div>
+                    {linkError && (
+                      <p className="text-xs text-red-400 mt-2">{linkError}</p>
+                    )}
                   </div>
                 )}
               </GlassCard>
